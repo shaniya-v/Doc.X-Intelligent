@@ -58,120 +58,92 @@
 
 ## 🏗️ System Architecture
 
-```mermaid
-graph TD
-    A[📧 Gmail] --> B[🔄 N8N Workflow]
-    B --> C[📎 Extract Attachments]
-    C --> D[🌐 Webhook Call]
-    D --> E[🐍 Flask Backend]
-    E --> F[🤖 OpenRouter AI]
-    E --> G[🗄️ Supabase Database]
-    E --> H[⚛️ React Frontend]
-    H --> I[🔐 Authentication]
-    H --> J[📊 Dashboard]
-    H --> K[💬 AI Chatbot]
-    H --> L[🔍 Document Search]
-    
-    F --> M[🎯 Department Routing]
-    F --> N[📝 Content Analysis]
-    F --> O[💭 Chat Responses]
-```
-
-### 🔄 Data Flow Overview
-
-```mermaid
-sequenceDiagram
-    participant Gmail as 📧 Gmail
-    participant N8N as 🔄 N8N
-    participant Backend as 🐍 Backend
-    participant AI as 🤖 AI
-    participant DB as 🗄️ Database
-    participant Frontend as ⚛️ Frontend
-    
-    Gmail->>N8N: New Email with Attachment
-    N8N->>Backend: Process Document
-    Backend->>AI: Analyze Content
-    AI->>Backend: Department Assignment
-    Backend->>DB: Store Document
-    Frontend->>Backend: Request Documents
-    Backend->>Frontend: Display Results
-```
-
-### 📋 Architecture Components
+### 📋 Architecture Overview
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   📧 Gmail      │───▶│   🔄 N8N        │───▶│  🐍 Flask       │
-│   Email Source │    │   Automation    │    │  Backend API    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                                                       │
-                                              ┌────────▼────────┐
-                                              │  🤖 OpenRouter  │
-                                              │  AI Processing  │
-                                              └────────┬────────┘
-                                                       │
-┌─────────────────┐    ┌─────────────────┐    ┌───────▼─────────┐
-│  ⚛️ React       │◀───│  🗄️ Supabase    │◀───│  📄 Document    │
-│  Frontend UI    │    │  Database       │    │  Processor      │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+📧 Gmail Email → 🔄 N8N Automation → 🐍 Flask Backend → �️ Supabase Database
+                                           ↓
+                              🤖 OpenRouter AI Analysis
+                                           ↓
+                              ⚛️ React Frontend Dashboard
 ```
+
+### 🔄 Component Flow
+
+**Email Processing:**
+- 📧 **Gmail** - Receives emails with document attachments
+- 🔄 **N8N Workflow** - Automatically processes incoming emails
+- 📎 **Attachment Extraction** - Extracts files from email attachments
+
+**Backend Services:**
+- 🐍 **Flask API** - Main backend server handling requests
+- 🤖 **OpenRouter AI** - Intelligent document analysis and routing
+- 🗄️ **Supabase Database** - Document storage and metadata
+- 📄 **Document Processor** - Multi-format file processing
+
+**Frontend Application:**
+- ⚛️ **React Dashboard** - Main user interface
+- � **Authentication** - Department-based login system
+- � **Department Views** - Customized dashboards per department
+- 💬 **AI Chatbot** - Document Q&A and smart assistance
+- 🔍 **Search & Filter** - Advanced document discovery
+
+**AI Services:**
+- 🎯 **Smart Routing** - Automatic department assignment
+- 📝 **Content Analysis** - Document type and priority detection
+- 💭 **Chat Intelligence** - Context-aware responses
 
 ---
 
 ## 📊 Data Flow
 
-### 🔄 Document Processing Flow
+### 🔄 Document Processing Workflow
 
-```mermaid
-sequenceDiagram
-    participant Gmail as 📧 Gmail
-    participant N8N as 🔄 N8N
-    participant Backend as 🐍 Backend
-    participant AI as 🤖 OpenRouter
-    participant DB as 🗄️ Supabase
-    participant Frontend as ⚛️ Frontend
-    
-    Gmail->>N8N: New email with attachment
-    N8N->>N8N: Extract attachment & metadata
-    N8N->>Backend: POST /webhook/store-document
-    Backend->>Backend: Process binary content
-    Backend->>AI: Analyze content for routing
-    AI->>Backend: Department assignment + confidence
-    Backend->>DB: Store document with metadata
-    Backend->>N8N: Success response
-    
-    Frontend->>Backend: GET /api/documents
-    Backend->>DB: Query documents by department
-    DB->>Frontend: Document list with tasks
-    Frontend->>Backend: GET /api/download/{id}
-    Backend->>Frontend: Binary file download
+**Step 1: Email Reception**
+```
+📧 Gmail → Receives email with attachment → Triggers N8N workflow
 ```
 
-### 💬 Chatbot Interaction Flow
-
-```mermaid
-sequenceDiagram
-    participant User as 👤 User
-    participant Chat as 💬 Chatbot
-    participant Backend as 🐍 Backend
-    participant AI as 🤖 OpenRouter
-    participant DB as 🗄️ Database
-    
-    User->>Chat: Ask question about document
-    Chat->>Backend: POST /api/chat
-    Backend->>DB: Retrieve relevant documents
-    Backend->>AI: Generate response with context
-    AI->>Backend: Intelligent answer
-    Backend->>Chat: Response with sources
-    Chat->>User: Display answer + document links
-    
-    User->>Chat: Upload new document
-    Chat->>Backend: POST /api/upload (with file)
-    Backend->>AI: Analyze intent from prompt
-    Backend->>Backend: Process file content
-    Backend->>DB: Store with privacy settings
-    Backend->>Chat: Upload confirmation
+**Step 2: Document Extraction**
 ```
+🔄 N8N → Extracts attachment & metadata → Prepares for processing
+```
+
+**Step 3: Backend Processing**
+```
+🌐 Webhook → 🐍 Flask Backend → 📄 Process binary content
+```
+
+**Step 4: AI Analysis**
+```
+🤖 OpenRouter AI → Analyzes document content → Determines department & priority
+```
+
+**Step 5: Database Storage**
+```
+🗄️ Supabase → Stores document + metadata → Makes available for frontend
+```
+
+**Step 6: User Access**
+```
+⚛️ Frontend → Requests documents → 📊 Displays in department dashboard
+```
+
+### 💬 Chatbot Interaction Process
+
+**Document Q&A Flow:**
+1. � **User asks question** about uploaded document
+2. 💬 **Chatbot forwards** query to backend API
+3. 🗄️ **Database retrieval** of relevant document context
+4. 🤖 **AI generates** intelligent response with document context
+5. 📱 **Display answer** with source document links
+
+**Smart Upload Flow:**
+1. 👤 **User uploads** document with intent description
+2. 🤖 **AI analyzes** user intent from prompt
+3. 📄 **Backend processes** file content extraction
+4. 🔒 **Privacy settings** applied (global vs private)
+5. ✅ **Confirmation** sent to user with document details
 
 ---
 
