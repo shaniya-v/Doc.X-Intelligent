@@ -1,6 +1,107 @@
-# 🚀 DOC.X Intelligent - AI-Powered Document Management System
+# 🚀 DOC.X Intelligent - AI-Powered Document Management Sy## 🏗️ System Architecture
 
 <div align="center">
+
+### 📊 Complete System Flow
+
+```mermaid
+flowchart TD
+    A[📧 Gmail] <div align="center">
+
+### 💬 Interactive Chat System
+
+```mermaid
+graph LR
+    A[👤 User Question] --> B[💬 Chat Interface]
+    B --> C[🔗 Backend API]
+    C --> D[🔍 Document Search]
+    C --> E[🤖 AI Processing]
+    D --> F[� Context Retrieval]
+    E --> G[💭 Response Generation]
+    F --> G
+    G --> H[📝 Smart Answer]
+    H --> B
+    
+    style A fill:#fce4ec,stroke:#c2185b
+    style E fill:#fff9c4,stroke:#f57f17
+    style H fill:#e8f5e8,stroke:#388e3c
+```
+
+### �🔄 Upload & Processing Flow
+
+```mermaid
+flowchart TD
+    Start([📤 Document Upload]) --> Check{📄 File Type?}
+    Check -->|PDF| PDF[📄 PDF Parser]
+    Check -->|Word| Word[📝 DOCX Parser]
+    Check -->|Excel| Excel[📊 XLSX Parser]
+    Check -->|CSV| CSV[📋 CSV Parser]
+    Check -->|Text| Text[📃 Text Parser]
+    
+    PDF --> Extract[📖 Content Extraction]
+    Word --> Extract
+    Excel --> Extract
+    CSV --> Extract
+    Text --> Extract
+    
+    Extract --> AI[🤖 AI Analysis]
+    AI --> Route[🎯 Department Classification]
+    Route --> Store[💾 Database Storage]
+    Store --> Success([✅ Upload Complete])
+    
+    style Start fill:#e3f2fd,stroke:#1976d2
+    style AI fill:#fff9c4,stroke:#f57f17
+    style Success fill:#e8f5e8,stroke:#388e3c
+```
+
+</div>    B --> C[🐍 Backend]
+    C --> D[🤖 AI]
+    C --> E[🗄️ Database]
+    C --> F[⚛️ Frontend]
+    
+    style A fill:#e3f2fd
+    style B fill:#f3e5f5
+    style C fill:#fff3e0
+    style D fill:#fff9c4
+    style E fill:#e8f5e8
+    style F fill:#fce4ec
+```
+
+### 🔄 Data Processing Pipeline
+
+```mermaid
+graph LR
+    subgraph Input
+    A[📧 Email] --> B[📎 Attachment]
+    end
+    
+    subgraph Processing
+    B --> C[🔄 N8N Extract]
+    C --> D[🐍 Backend Process]
+    D --> E[🤖 AI Analyze]
+    end
+    
+    subgraph Output
+    E --> F[🎯 Route to Dept]
+    F --> G[💾 Store in DB]
+    G --> H[📱 Display to User]
+    end
+```
+
+### 💬 Chatbot Intelligence Flow
+
+```mermaid
+sequenceDiagram
+    User->>Chatbot: Ask Question
+    Chatbot->>Backend: Query Request
+    Backend->>Database: Fetch Context
+    Backend->>AI: Generate Response
+    AI->>Backend: Smart Answer
+    Backend->>Chatbot: Response + Sources
+    Chatbot->>User: Display Result
+```
+
+</div>v align="center">
 
 ![DOC.X Intelligent Logo](https://img.shields.io/badge/DOC.X-Intelligent-blue?style=for-the-badge&logo=document)
 
@@ -20,9 +121,8 @@
 ## 📋 Table of Contents
 
 - [🌟 Features](#-features)
-- [🧠 System Architecture Mind Map](#-system-architecture-mind-map)
-- [🔄 Workflow Diagrams](#-workflow-diagrams)
-- [📊 Data Flow Visualization](#-data-flow-visualization)
+- [🏗️ System Architecture](#️-system-architecture)
+- [📊 Data Flow](#-data-flow)
 - [🔧 Technology Stack](#-technology-stack)
 - [🚀 Quick Start](#-quick-start)
 - [📁 Project Structure](#-project-structure)
@@ -57,298 +157,123 @@
 
 ---
 
-## 🧠 System Architecture Mind Map
+## 🏗️ System Architecture
 
-<div align="center">
+### 📋 Architecture Overview
 
-```mermaid
-mindmap
-  root((DOC.X Intelligent))
-    Frontend
-      React TypeScript
-      Vite Build Tool
-      Tailwind CSS
-      Responsive Design
-    Backend
-      Flask Python
-      OpenRouter AI
-      Document Processing
-      REST API
-    Database
-      Supabase PostgreSQL
-      Document Storage
-      User Management
-      Task Tracking
-    Automation
-      N8N Workflows
-      Gmail Integration
-      Email Processing
-      Auto Routing
-    AI Features
-      Smart Classification
-      Chat Q&A
-      Content Analysis
-      Department Routing
-    Security
-      JWT Authentication
-      Department Access
-      Privacy Controls
-      Secure APIs
+```
+📧 Gmail Email → 🔄 N8N Automation → 🐍 Flask Backend → �️ Supabase Database
+                                           ↓
+                              🤖 OpenRouter AI Analysis
+                                           ↓
+                              ⚛️ React Frontend Dashboard
 ```
 
-</div>
+### 🔄 Component Flow
+
+**Email Processing:**
+- 📧 **Gmail** - Receives emails with document attachments
+- 🔄 **N8N Workflow** - Automatically processes incoming emails
+- 📎 **Attachment Extraction** - Extracts files from email attachments
+
+**Backend Services:**
+- 🐍 **Flask API** - Main backend server handling requests
+- 🤖 **OpenRouter AI** - Intelligent document analysis and routing
+- 🗄️ **Supabase Database** - Document storage and metadata
+- 📄 **Document Processor** - Multi-format file processing
+
+**Frontend Application:**
+- ⚛️ **React Dashboard** - Main user interface
+- � **Authentication** - Department-based login system
+- � **Department Views** - Customized dashboards per department
+- 💬 **AI Chatbot** - Document Q&A and smart assistance
+- 🔍 **Search & Filter** - Advanced document discovery
+
+**AI Services:**
+- 🎯 **Smart Routing** - Automatic department assignment
+- 📝 **Content Analysis** - Document type and priority detection
+- 💭 **Chat Intelligence** - Context-aware responses
 
 ---
 
-## 🔄 Workflow Diagrams
-
-### 📧 Email Processing Workflow
+## 📊 Data Flow
 
 <div align="center">
 
+### 🔄 Document Processing Workflow
+
 ```mermaid
-flowchart TD
-    A[📧 Gmail Email Received] --> B{📎 Has Attachment?}
-    B -->|Yes| C[🔄 N8N Trigger]
-    B -->|No| D[❌ Skip Processing]
-    
-    C --> E[📁 Extract Attachment]
-    E --> F[🌐 Send to Webhook]
-    F --> G[🐍 Flask Backend]
-    
-    G --> H[📄 Process Document]
-    H --> I[🤖 AI Analysis]
-    I --> J[🎯 Department Classification]
-    
-    J --> K[💾 Store in Supabase]
-    K --> L[📊 Update Dashboard]
-    L --> M[✅ Processing Complete]
+graph TD
+    A[📧 Email with Attachment] --> B[🔄 N8N Extraction]
+    B --> C[🌐 Webhook to Backend]
+    C --> D[🐍 Flask Processing]
+    D --> E[🤖 AI Analysis]
+    E --> F[🎯 Department Routing]
+    F --> G[� Supabase Storage]
+    G --> H[📱 Frontend Display]
     
     style A fill:#e3f2fd,stroke:#1976d2
-    style I fill:#fff9c4,stroke:#f57f17
-    style M fill:#e8f5e8,stroke:#388e3c
-```
-
-</div>
-
-### 💬 Chatbot Interaction Workflow
-
-<div align="center">
-
-```mermaid
-sequenceDiagram
-    participant U as 👤 User
-    participant C as 💬 Chatbot
-    participant B as 🐍 Backend
-    participant AI as 🤖 OpenRouter
-    participant DB as 🗄️ Database
-    
-    U->>C: Ask Question
-    C->>B: Send Query
-    B->>DB: Fetch Document Context
-    DB->>B: Return Relevant Docs
-    B->>AI: Generate Response
-    AI->>B: Smart Answer
-    B->>C: Response + Sources
-    C->>U: Display Result
-    
-    Note over U,DB: Intelligent Q&A with Context
-```
-
-</div>
-
-### 📤 Smart Upload Workflow
-
-<div align="center">
-
-```mermaid
-flowchart LR
-    A[👤 User Upload] --> B[📄 File Validation]
-    B --> C[🤖 Intent Analysis]
-    C --> D{🔒 Privacy Setting?}
-    
-    D -->|Private| E[🔐 Private Storage]
-    D -->|Global| F[🌐 Public Storage]
-    
-    E --> G[📊 Process Content]
-    F --> G
-    
-    G --> H[🎯 AI Classification]
-    H --> I[📋 Extract Tasks]
-    I --> J[✅ Confirm to User]
-    
-    style A fill:#fce4ec,stroke:#c2185b
-    style H fill:#fff9c4,stroke:#f57f17
-    style J fill:#e8f5e8,stroke:#388e3c
-```
-
-</div>
-
----
-
-## 📊 Data Flow Visualization
-
-### 🔄 Complete System Data Flow
-
-<div align="center">
-
-```mermaid
-graph TB
-    subgraph "📧 Input Sources"
-        A[Gmail Emails]
-        B[Manual Uploads]
-        C[Chatbot Interactions]
-    end
-    
-    subgraph "🔄 Processing Layer"
-        D[N8N Automation]
-        E[Flask Backend]
-        F[OpenRouter AI]
-    end
-    
-    subgraph "💾 Storage Layer"
-        G[Supabase Database]
-        H[Binary File Storage]
-        I[Task Management]
-    end
-    
-    subgraph "🎨 Presentation Layer"
-        J[React Dashboard]
-        K[Department Views]
-        L[AI Chatbot Interface]
-    end
-    
-    A --> D
-    B --> E
-    C --> E
-    
-    D --> E
-    E --> F
-    F --> E
-    
-    E --> G
-    E --> H
-    E --> I
-    
-    G --> J
-    H --> J
-    I --> J
-    
-    J --> K
-    J --> L
-    
-    style F fill:#fff9c4,stroke:#f57f17
+    style E fill:#fff9c4,stroke:#f57f17
     style G fill:#e8f5e8,stroke:#388e3c
-    style J fill:#e3f2fd,stroke:#1976d2
 ```
 
 </div>
 
-### 🏢 Department-Based Access Flow
+### 💬 Chatbot Interaction Process
 
-<div align="center">
+**Document Q&A Flow:**
+1. � **User asks question** about uploaded document
+2. 💬 **Chatbot forwards** query to backend API
+3. 🗄️ **Database retrieval** of relevant document context
+4. 🤖 **AI generates** intelligent response with document context
+5. 📱 **Display answer** with source document links
 
-```mermaid
-flowchart TD
-    A[🔐 User Login] --> B{🏢 Select Department}
-    
-    B --> C[💰 Finance]
-    B --> D[👥 HR]
-    B --> E[⚙️ Engineering]
-    B --> F[📊 Operations]
-    B --> G[📈 Marketing]
-    B --> H[🏛️ Administration]
-    
-    C --> I[📊 Finance Dashboard]
-    D --> J[👥 HR Dashboard]
-    E --> K[⚙️ Engineering Dashboard]
-    F --> L[📊 Operations Dashboard]
-    G --> M[📈 Marketing Dashboard]
-    H --> N[🏛️ Admin Dashboard]
-    
-    I --> O[📄 Department Documents]
-    J --> O
-    K --> O
-    L --> O
-    M --> O
-    N --> O
-    
-    O --> P[💬 AI Chatbot]
-    O --> Q[🔍 Smart Search]
-    O --> R[📤 Document Upload]
-    
-    style A fill:#fce4ec,stroke:#c2185b
-    style O fill:#e8f5e8,stroke:#388e3c
-    style P fill:#fff9c4,stroke:#f57f17
-```
-
-</div>
+**Smart Upload Flow:**
+1. 👤 **User uploads** document with intent description
+2. 🤖 **AI analyzes** user intent from prompt
+3. 📄 **Backend processes** file content extraction
+4. 🔒 **Privacy settings** applied (global vs private)
+5. ✅ **Confirmation** sent to user with document details
 
 ---
 
 ## 🔧 Technology Stack
 
-### 🎨 Frontend Architecture
-
-```mermaid
-graph LR
-    A[⚛️ React 18.x] --> B[📘 TypeScript 4.x]
-    B --> C[⚡ Vite Build Tool]
-    C --> D[🎨 Tailwind CSS]
-    D --> E[🔄 Context API]
-    E --> F[📱 Responsive Design]
-    
-    style A fill:#e3f2fd,stroke:#1976d2
-    style D fill:#e8f5e8,stroke:#388e3c
+### 🎨 Frontend
+```typescript
+// React with TypeScript
+React 18.x + TypeScript 4.x
+Vite (Build Tool)
+Tailwind CSS (Styling)
+Context API (State Management)
 ```
 
-### ⚙️ Backend Architecture
-
-```mermaid
-graph LR
-    A[🐍 Flask 2.x] --> B[🤖 OpenRouter API]
-    B --> C[🗄️ Supabase Client]
-    C --> D[📄 Document Processing]
-    D --> E[🔐 JWT Authentication]
-    E --> F[🌐 CORS Support]
-    
-    style A fill:#fff3e0,stroke:#f57c00
-    style B fill:#fff9c4,stroke:#f57f17
+### ⚙️ Backend
+```python
+# Flask with AI Integration
+Flask 2.x
+OpenRouter API Integration
+Supabase Client
+Multi-format Document Processing
+JWT Authentication
 ```
 
-### 🗄️ Database Schema
+### 🗄️ Database & Storage
+```sql
+-- Supabase PostgreSQL
+Documents Table (Content, Metadata, Binary Data)
+Task Status Tracking
+User Authentication
+Privacy Management
+```
 
-```mermaid
-erDiagram
-    DOCUMENTS {
-        string id PK
-        string title
-        text content
-        string assigned_department
-        string priority
-        integer confidence
-        string status
-        text binary_data
-        integer file_size
-        boolean content_extracted
-        string source
-        string language
-        json metadata
-        timestamp created_at
-        timestamp updated_at
-    }
-    
-    TASK_STATUS {
-        serial id PK
-        string document_id FK
-        string department
-        text task_description
-        boolean completed
-        timestamp completed_at
-        timestamp created_at
-    }
-    
-    DOCUMENTS ||--o{ TASK_STATUS : generates
+### 🤖 AI & Automation
+```yaml
+# AI Services
+OpenRouter: LLM Integration
+N8N: Email Workflow Automation
+RAG: Document Question Answering
+Smart Routing: Department Assignment
 ```
 
 ---
@@ -494,24 +419,11 @@ def analyze_with_rag(content: str, title: str, metadata: dict):
 
 ### 💬 Advanced Chatbot Features
 
-<div align="center">
-
-```mermaid
-flowchart LR
-    A[📄 Document Q&A] --> F[💬 Chatbot Core]
-    B[🔍 Smart Search] --> F
-    C[📤 Intelligent Upload] --> F
-    D[🔒 Privacy Control] --> F
-    E[🔄 Duplicate Detection] --> F
-    
-    F --> G[🤖 AI Processing]
-    G --> H[📱 User Interface]
-    
-    style F fill:#fff9c4,stroke:#f57f17
-    style G fill:#e8f5e8,stroke:#388e3c
-```
-
-</div>
+1. **📄 Document Q&A**: Ask questions about uploaded documents
+2. **🔍 Smart Search**: Semantic search across document database
+3. **📤 Intelligent Upload**: Upload with intent analysis
+4. **🔒 Privacy Control**: Global vs private document management
+5. **🔄 Duplicate Detection**: Content-based duplicate prevention
 
 ### 🌟 AI Workflow Examples
 
