@@ -1,0 +1,51 @@
+{
+  "parameters": {
+    "url": "https://your-maximo-server.com/maximo/oslc/os/mxasset",
+    "authentication": "predefinedCredentialType",
+    "nodeCredentialType": "httpBasicAuth",
+    "sendQuery": true,
+    "queryParameters": {
+      "parameters": [
+        {
+          "name": "oslc.where",
+          "value": "changedate>=\"{{ $now.minus({days: 1}).toISO() }}\""
+        },
+        {
+          "name": "oslc.select",
+          "value": "assetnum,description,location,status,changedate,siteid"
+        },
+        {
+          "name": "oslc.pageSize",
+          "value": "20"
+        }
+      ]
+    },
+    "sendHeaders": true,
+    "headerParameters": {
+      "parameters": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Properties",
+          "value": "spi:*"
+        }
+      ]
+    },
+    "options": {
+      "response": {
+        "response": {
+          "responseFormat": "json"
+        }
+      },
+      "timeout": {
+        "timeout": 30000
+      }
+    }
+  }
+}

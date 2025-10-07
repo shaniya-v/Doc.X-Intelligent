@@ -1,0 +1,253 @@
+{
+  "name": "DOC.X Intelligent - Gmail Document Processor",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "f6b5c3e8-9d2a-4b7f-8e1c-3a5d7f9b2c4e",
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 50,
+        "simple": false,
+        "options": {
+          "includeSpamTrash": false,
+          "attachments": true,
+          "format": "full"
+        },
+        "filters": {
+          "q": "from:kmrl.co.in OR from:maximo@kmrl OR subject:kmrl OR subject:കെഎംആർഎൽ OR subject:maintenance OR subject:മെയിന്റനൻസ് OR (has:attachment AND (subject:maintenance OR subject:report OR subject:incident))"
+        }
+      },
+      "id": "a1b2c3d4-e5f6-7g8h-9i0j-k1l2m3n4o5p6",
+      "name": "Gmail Scanner",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "your-gmail-credentials-id",
+          "name": "Gmail OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// KMRL Email Filter & Document Storage (Stage 1)\nconst items = $input.all();\nconst results = [];\n\nconsole.log(`🔍 KMRL Filter: Processing ${items.length} emails`);\n\n// Enhanced KMRL detection function\nfunction isKMRLEmail(emailData) {\n    const from = (emailData.from?.emailAddress || emailData.from || '').toLowerCase();\n    const subject = (emailData.subject || '').toLowerCase();\n    const body = (emailData.body || emailData.textPlain || emailData.snippet || '').toLowerCase();\n    \n    console.log(`📧 Checking: ${subject}`);\n    console.log(`👤 From: ${from}`);\n    \n    // Primary KMRL domain check\n    if (from.includes('kmrl.co.in') || from.includes('maximo@kmrl')) {\n        console.log(`✅ KMRL domain confirmed`);\n        return true;\n    }\n    \n    // KMRL keyword checks (English & Malayalam)\n    const kmrlKeywords = [\n        'kmrl', 'കെഎംആർഎൽ', 'kochi metro', 'കൊച്ചി മെട്രോ',\n        'metro rail', 'മെട്രോ റെയിൽ'\n    ];\n    \n    const operationalKeywords = [\n        'maintenance', 'മെയിന്റനൻസ്', 'repair', 'incident', \n        'safety', 'സുരക്ഷ', 'track', 'ട്രാക്ക്', 'train', 'ട്രെയിൻ',\n        'station', 'സ്റ്റേഷൻ', 'platform', 'പ്ലാറ്റ്ഫോം'\n    ];\n    \n    const locationKeywords = [\n        'ernakulam', 'എറണാകുളം', 'aluva', 'ആലുവ', \n        'kaloor', 'കളൂർ', 'edapally', 'ഇടപ്പള്ളി',\n        'palarivattom', 'പാലരിവട്ടം'\n    ];\n    \n    // Check for KMRL keywords\n    const hasKMRLKeyword = kmrlKeywords.some(keyword => \n        subject.includes(keyword) || body.includes(keyword)\n    );\n    \n    if (hasKMRLKeyword) {\n        console.log(`✅ KMRL keyword found`);\n        return true;\n    }\n    \n    // Check for operational + location combination\n    const hasOperational = operationalKeywords.some(keyword => \n        subject.includes(keyword) || body.includes(keyword)\n    );\n    const hasLocation = locationKeywords.some(keyword => \n        subject.includes(keyword) || body.includes(keyword)\n    );\n    \n    if (hasOperational && hasLocation) {\n        console.log(`✅ KMRL operational + location detected`);\n        return true;\n    }\n    \n    // Check for maintenance reports with attachments\n    if ((subject.includes('maintenance') || subject.includes('report') || subject.includes('incident')) && \n        emailData.attachments && emailData.attachments.length > 0) {\n        console.log(`✅ Maintenance report with attachments`);\n        return true;\n    }\n    \n    console.log(`❌ Not KMRL related`);\n    return false;\n}\n\n// Helper function to safely extract string values\nfunction safeString(value) {\n    if (typeof value === 'string') return value;\n    if (value && typeof value === 'object') {\n        if (value.value && Array.isArray(value.value) && value.value[0]) {\n            const addr = value.value[0];\n            return addr.name ? `${addr.name} <${addr.address}>` : addr.address;\n        }\n        if (value.text) return value.text;\n        if (value.emailAddress) return value.emailAddress;\n        if (value.name) return value.name;\n        return String(value);\n    }\n    return String(value || '');\n}\n\n// Process and filter emails\nfor (let i = 0; i < items.length; i++) {\n    const item = items[i];\n    const emailData = item.json;\n    \n    // Apply KMRL filter\n    if (!isKMRLEmail(emailData)) {\n        console.log(`⏭️ Skipping non-KMRL email: ${emailData.subject}`);\n        continue;\n    }\n    \n    console.log(`🎯 KMRL email confirmed: ${emailData.subject}`);\n    \n    try {\n        // Prepare data for storage (Stage 1)\n        const storageData = {\n            source: \"n8n\",\n            emailId: emailData.id,\n            subject: emailData.subject || \"KMRL Document\",\n            from: safeString(emailData.from),\n            to: safeString(emailData.to),\n            timestamp: emailData.internalDate || emailData.date || new Date().toISOString(),\n            threadId: emailData.threadId || \"\",\n            content: emailData.body || emailData.textPlain || emailData.snippet || \"\",\n            hasAttachments: emailData.attachments ? emailData.attachments.length > 0 : false,\n            attachmentCount: emailData.attachments ? emailData.attachments.length : 0,\n            sizeEstimate: emailData.sizeEstimate || 0,\n            labelIds: emailData.labelIds || [],\n            metadata: {\n                originalMessageId: emailData.id,\n                receivedDate: emailData.internalDate,\n                kmrlVerified: true,\n                stage: \"storage\",\n                workflowVersion: \"v2.0\"\n            }\n        };\n        \n        // Add attachment info if present\n        if (emailData.attachments && emailData.attachments.length > 0) {\n            storageData.attachments = emailData.attachments.map(att => ({\n                filename: att.filename,\n                mimeType: att.mimeType,\n                size: att.size,\n                attachmentId: att.attachmentId\n            }));\n        }\n        \n        // Store document in database first (Stage 1)\n        console.log(`💾 Storing KMRL document: ${storageData.subject}`);\n        \n        const storeResponse = await fetch('http://127.0.0.1:5000/webhook/store-document?source=n8n', {\n            method: 'POST',\n            headers: {\n                'Content-Type': 'application/json',\n                'X-N8N-Source': 'kmrl-storage-workflow',\n                'User-Agent': 'n8n-kmrl-storage/2.0'\n            },\n            body: JSON.stringify(storageData)\n        });\n        \n        const storeResult = await storeResponse.json();\n        \n        if (storeResponse.ok) {\n            console.log(`✅ Stored successfully: ${storeResult.document?.id}`);\n            \n            // Pass data for next stage (download/process)\n            results.push({\n                json: {\n                    status: 'stored',\n                    documentId: storeResult.document?.id,\n                    emailId: emailData.id,\n                    subject: emailData.subject,\n                    from: safeString(emailData.from),\n                    hasAttachments: storageData.hasAttachments,\n                    attachmentCount: storageData.attachmentCount,\n                    storeTimestamp: new Date().toISOString(),\n                    nextStage: storageData.hasAttachments ? 'download' : 'process',\n                    originalEmail: emailData\n                },\n                binary: item.binary || {}\n            });\n        } else {\n            console.error(`❌ Storage failed: ${storeResult.error}`);\n            \n            results.push({\n                json: {\n                    status: 'storage_error',\n                    emailId: emailData.id,\n                    subject: emailData.subject,\n                    error: storeResult.error,\n                    timestamp: new Date().toISOString()\n                }\n            });\n        }\n        \n    } catch (error) {\n        console.error(`❌ Processing error: ${error.message}`);\n        \n        results.push({\n            json: {\n                status: 'error',\n                emailId: emailData.id,\n                subject: emailData.subject,\n                error: error.message,\n                timestamp: new Date().toISOString()\n            }\n        });\n    }\n}\n\nconsole.log(`📊 KMRL Filter Summary:`);\nconsole.log(`📧 Input emails: ${items.length}`);\nconsole.log(`🎯 KMRL emails: ${results.length}`);\nconsole.log(`💾 Stored: ${results.filter(r => r.json.status === 'stored').length}`);\nconsole.log(`❌ Errors: ${results.filter(r => r.json.status === 'error').length}`);\n\nreturn results;"
+      },
+      "id": "kmrl-filter-store",
+      "name": "KMRL Filter & Store",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition1",
+              "leftValue": "={{ $json.nextStage === 'download' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equal"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "stage-router",
+      "name": "Route to Download/Process",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "resource": "attachment",
+        "messageId": "={{ $json.originalEmail.id }}",
+        "attachmentId": "={{ $json.originalEmail.attachments[0].attachmentId }}",
+        "options": {}
+      },
+      "id": "download-attachments",
+      "name": "Download Attachments",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [1120, 200],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "your-gmail-credentials-id",
+          "name": "Gmail OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Stage 2: Process Downloaded Documents\nconst items = $input.all();\nconst results = [];\n\nconsole.log(`🔄 Stage 2: Processing ${items.length} downloaded documents`);\n\nfor (let i = 0; i < items.length; i++) {\n    const item = items[i];\n    \n    try {\n        console.log(`� Processing downloaded attachment ${i + 1}`);\n        \n        // Get stored document info\n        const documentId = item.json.documentId;\n        const emailData = item.json.originalEmail;\n        \n        // Prepare document for processing (Stage 2)\n        const processData = {\n            source: \"n8n\",\n            documentId: documentId,\n            content: emailData.body || emailData.textPlain || emailData.snippet || \"\",\n            subject: emailData.subject || \"KMRL Document\",\n            from: item.json.from,\n            timestamp: emailData.internalDate || emailData.date || new Date().toISOString(),\n            messageId: emailData.id,\n            hasBinary: Object.keys(item.binary || {}).length > 0,\n            metadata: {\n                stage: \"processing\",\n                storedDocumentId: documentId,\n                downloadTimestamp: new Date().toISOString()\n            }\n        };\n        \n        // Add binary data if available\n        if (item.binary && Object.keys(item.binary).length > 0) {\n            processData.binary = {};\n            \n            for (const [key, attachment] of Object.entries(item.binary)) {\n                if (attachment && attachment.data) {\n                    processData.binary[key] = {\n                        data: attachment.data,\n                        fileName: attachment.fileName || attachment.filename || `attachment_${key}`,\n                        mimeType: attachment.mimeType || 'application/octet-stream',\n                        fileSize: attachment.fileSize || 0\n                    };\n                    console.log(`  📄 ${processData.binary[key].fileName}`);\n                }\n            }\n        }\n        \n        // Send to backend for processing\n        console.log(`🤖 Processing with AI: ${processData.subject}`);\n        \n        const response = await fetch('http://127.0.0.1:5000/webhook/document?source=n8n', {\n            method: 'POST',\n            headers: {\n                'Content-Type': 'application/json',\n                'X-N8N-Source': 'kmrl-processing-workflow',\n                'User-Agent': 'n8n-kmrl-processor/2.0'\n            },\n            body: JSON.stringify(processData)\n        });\n        \n        const responseData = await response.json();\n        \n        if (response.ok) {\n            console.log(`✅ Processed successfully: ${responseData.document?.id}`);\n            \n            results.push({\n                json: {\n                    status: 'processed',\n                    documentId: responseData.document?.id,\n                    subject: processData.subject,\n                    assignedDepartment: responseData.document?.assigned_department,\n                    priority: responseData.document?.priority,\n                    confidence: responseData.document?.confidence,\n                    multiDepartment: responseData.document?.multi_department || false,\n                    departments: responseData.document?.departments_detected || [],\n                    analysisMethod: responseData.document?.analysis_method || 'RAG',\n                    message: responseData.message,\n                    timestamp: new Date().toISOString(),\n                    documentUrl: `http://localhost:3001/document/${responseData.document?.id}`\n                }\n            });\n        } else {\n            console.error(`❌ Processing failed: ${responseData.error}`);\n            \n            results.push({\n                json: {\n                    status: 'processing_error',\n                    documentId: documentId,\n                    subject: processData.subject,\n                    error: responseData.error,\n                    timestamp: new Date().toISOString()\n                }\n            });\n        }\n        \n    } catch (error) {\n        console.error(`❌ Processing error: ${error.message}`);\n        \n        results.push({\n            json: {\n                status: 'error',\n                error: error.message,\n                timestamp: new Date().toISOString()\n            }\n        });\n    }\n}\n\nreturn results;"
+      },
+      "id": "process-documents",
+      "name": "Process Documents (Stage 2)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Simple text email processor for emails without attachments\nconst items = $input.all();\nconst results = [];\n\nconsole.log(`📝 Processing ${items.length} text emails`);\n\nfor (let i = 0; i < items.length; i++) {\n    const item = items[i];\n    \n    try {\n        // Prepare text email for DOC.X backend\n        const documentData = {\n            source: \"n8n\",\n            content: item.json.body || item.json.textPlain || item.json.snippet || \"\",\n            subject: item.json.subject || \"Gmail Text Email\",\n            from: item.json.from?.emailAddress || item.json.from || \"unknown\",\n            timestamp: item.json.internalDate || item.json.date || new Date().toISOString(),\n            messageId: item.json.id || `n8n_text_${Date.now()}_${i}`,\n            threadId: item.json.threadId || \"\",\n            hasBinary: false,\n            metadata: {\n                emailType: \"text-only\",\n                itemIndex: i,\n                nodeType: \"text-email-processor\"\n            }\n        };\n\n        console.log(`📧 Processing text email: ${documentData.subject}`);\n        \n        const response = await fetch('http://127.0.0.1:5000/webhook/document?source=n8n', {\n            method: 'POST',\n            headers: {\n                'Content-Type': 'application/json',\n                'X-N8N-Source': 'gmail-text-workflow',\n                'User-Agent': 'n8n-text-processor/2.0'\n            },\n            body: JSON.stringify(documentData)\n        });\n\n        const responseData = await response.json();\n        \n        if (response.ok) {\n            results.push({\n                json: {\n                    status: 'success',\n                    messageId: documentData.messageId,\n                    subject: documentData.subject,\n                    documentId: responseData.document?.id,\n                    assignedDepartment: responseData.document?.assigned_department,\n                    timestamp: new Date().toISOString()\n                }\n            });\n        } else {\n            results.push({\n                json: {\n                    status: 'error',\n                    messageId: documentData.messageId,\n                    error: responseData.error,\n                    timestamp: new Date().toISOString()\n                }\n            });\n        }\n\n    } catch (error) {\n        results.push({\n            json: {\n                status: 'error',\n                error: error.message,\n                timestamp: new Date().toISOString()\n            }\n        });\n    }\n}\n\nreturn results;"
+      },
+      "id": "e5f6g7h8-i9j0-1k2l-3m4n-o5p6q7r8s9t0",
+      "name": "Process Text Emails", 
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "f6g7h8i9-j0k1-2l3m-4n5o-p6q7r8s9t0u1",
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Final Results Summary for DOC.X Intelligent Processing\nconst items = $input.all();\n\nconst successItems = items.filter(item => item.json.status === 'success');\nconst errorItems = items.filter(item => item.json.status === 'error');\n\nconsole.log(`🎯 DOC.X PROCESSING SUMMARY:`);\nconsole.log(`📊 Total processed: ${items.length}`);\nconsole.log(`✅ Successful: ${successItems.length}`);\nconsole.log(`❌ Errors: ${errorItems.length}`);\n\nif (successItems.length > 0) {\n    console.log(`\\n📄 Successfully processed documents:`);\n    successItems.forEach((item, index) => {\n        console.log(`  ${index + 1}. ${item.json.subject} → ${item.json.assignedDepartment}`);\n        if (item.json.documentUrl) {\n            console.log(`     🔗 ${item.json.documentUrl}`);\n        }\n    });\n}\n\nif (errorItems.length > 0) {\n    console.log(`\\n❌ Failed items:`);\n    errorItems.forEach((item, index) => {\n        console.log(`  ${index + 1}. ${item.json.subject || 'Unknown'}: ${item.json.error}`);\n    });\n}\n\n// Return summary\nreturn [{\n    json: {\n        summary: {\n            totalProcessed: items.length,\n            successful: successItems.length,\n            errors: errorItems.length,\n            processingTimestamp: new Date().toISOString()\n        },\n        successfulDocuments: successItems.map(item => ({\n            documentId: item.json.documentId,\n            subject: item.json.subject,\n            department: item.json.assignedDepartment,\n            url: item.json.documentUrl\n        })),\n        errors: errorItems.map(item => ({\n            subject: item.json.subject,\n            error: item.json.error\n        })),\n        dashboardUrl: 'http://localhost:3001',\n        message: `DOC.X Intelligent processed ${successItems.length} documents successfully`\n    }\n}];"
+      },
+      "id": "g7h8i9j0-k1l2-3m4n-5o6p-q7r8s9t0u1v2",
+      "name": "Final Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 300]
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Gmail Scanner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Scanner": {
+      "main": [
+        [
+          {
+            "node": "Has Attachments?",
+            "type": "main", 
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Attachments?": {
+      "main": [
+        [
+          {
+            "node": "Download Documents",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Process Text Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Documents": {
+      "main": [
+        [
+          {
+            "node": "Prepare for Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare for Backend": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Text Emails": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Results": {
+      "main": [
+        [
+          {
+            "node": "Final Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-10-06T15:30:00.000Z",
+  "updatedAt": "2025-10-06T15:30:00.000Z",
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "doc-x-intelligent-v2.0",
+  "triggerCount": 0,
+  "tags": [
+    {
+      "createdAt": "2025-10-06T15:30:00.000Z",
+      "updatedAt": "2025-10-06T15:30:00.000Z",
+      "id": "tag1",
+      "name": "DOC.X Intelligent"
+    },
+    {
+      "createdAt": "2025-10-06T15:30:00.000Z", 
+      "updatedAt": "2025-10-06T15:30:00.000Z",
+      "id": "tag2",
+      "name": "Gmail Processing"
+    }
+  ]
+}

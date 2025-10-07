@@ -1,0 +1,133 @@
+{
+  "name": "DOC.X KMRL Document Processor - Fixed",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start-node",
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 20,
+        "simple": false,
+        "options": {
+          "includeSpamTrash": false,
+          "attachments": true,
+          "format": "full"
+        },
+        "filters": {
+          "q": "from:kmrl.co.in OR from:maximo@kmrl OR subject:kmrl OR subject:കെഎംആർഎൽ OR subject:maintenance OR subject:മെയിന്റനൻസ് OR (has:attachment AND (subject:maintenance OR subject:report OR subject:incident))"
+        }
+      },
+      "id": "gmail-scanner",
+      "name": "Gmail Scanner",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "your-gmail-credentials-id",
+          "name": "Gmail OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// KMRL Document Processor - Handle Gmail Output\nconst items = $input.all();\nconst results = [];\n\nconsole.log(`🔄 Processing ${items.length} Gmail items`);\n\n// Helper function to safely extract string values\nfunction safeString(value) {\n    if (typeof value === 'string') return value;\n    if (value && typeof value === 'object') {\n        if (value.value && Array.isArray(value.value) && value.value[0]) {\n            const addr = value.value[0];\n            return addr.name ? `${addr.name} <${addr.address}>` : addr.address;\n        }\n        if (value.text) return value.text;\n        if (value.emailAddress) return value.emailAddress;\n        if (value.name) return value.name;\n        return String(value);\n    }\n    return String(value || '');\n}\n\n// Enhanced KMRL detection\nfunction isKMRLEmail(emailData) {\n    const from = safeString(emailData.from || '').toLowerCase();\n    const subject = (emailData.subject || '').toLowerCase();\n    const body = (emailData.body || emailData.textPlain || emailData.snippet || '').toLowerCase();\n    \n    console.log(`📧 Checking: ${subject}`);\n    console.log(`👤 From: ${from}`);\n    \n    // Primary KMRL domain check\n    if (from.includes('kmrl.co.in') || from.includes('maximo@kmrl')) {\n        console.log(`✅ KMRL domain confirmed`);\n        return true;\n    }\n    \n    // KMRL keyword checks\n    const kmrlKeywords = [\n        'kmrl', 'കെഎംആർഎൽ', 'kochi metro', 'കൊച്ചി മെട്രോ',\n        'metro rail', 'മെട്രോ റെയിൽ', 'maintenance', 'മെയിന്റനൻസ്'\n    ];\n    \n    const hasKMRLKeyword = kmrlKeywords.some(keyword => \n        subject.includes(keyword) || body.includes(keyword)\n    );\n    \n    if (hasKMRLKeyword) {\n        console.log(`✅ KMRL keyword found`);\n        return true;\n    }\n    \n    console.log(`❌ Not KMRL related`);\n    return false;\n}\n\n// Process each Gmail item\nfor (let i = 0; i < items.length; i++) {\n    const item = items[i];\n    const emailData = item.json;\n    const binary = item.binary || {};\n    \n    console.log(`\\n=== Processing Gmail Item ${i + 1} ===`);\n    console.log(`📧 Subject: ${emailData.subject}`);\n    console.log(`👤 From: ${safeString(emailData.from)}`);\n    console.log(`🆔 Message ID: ${emailData.id}`);\n    console.log(`📎 Has binary: ${Object.keys(binary).length > 0}`);\n    console.log(`📎 Binary keys: ${Object.keys(binary).join(', ')}`);\n    \n    // Apply KMRL filter\n    if (!isKMRLEmail(emailData)) {\n        console.log(`⏭️ Skipping non-KMRL email`);\n        continue;\n    }\n    \n    console.log(`🎯 KMRL email confirmed!`);\n    \n    try {\n        // Check for binary attachments (like your CSV file)\n        if (binary && Object.keys(binary).length > 0) {\n            console.log(`📎 Processing ${Object.keys(binary).length} binary attachments`);\n            \n            for (const [key, attachment] of Object.entries(binary)) {\n                if (attachment && (attachment.fileName || attachment.filename)) {\n                    const fileName = attachment.fileName || attachment.filename;\n                    console.log(`📄 Found attachment: ${fileName} (${attachment.fileSize || 0} bytes)`);\n                    \n                    // Create result for each attachment\n                    results.push({\n                        json: {\n                            documentId: `kmrl_${new Date().toISOString().slice(0,10).replace(/-/g,'')}_${Date.now()}_${fileName}`.replace(/[^a-zA-Z0-9_.-]/g, '_'),\n                            filename: fileName,\n                            mimeType: attachment.mimeType || 'application/octet-stream',\n                            size: attachment.fileSize || 0,\n                            source: 'gmail_n8n',\n                            hasAttachment: true,\n                            originalEmail: {\n                                id: emailData.id,\n                                subject: emailData.subject,\n                                from: safeString(emailData.from),\n                                date: emailData.date || emailData.internalDate,\n                                threadId: emailData.threadId\n                            },\n                            metadata: {\n                                binaryKey: key,\n                                kmrlRelevance: 'confirmed',\n                                stage: 'ready_for_download',\n                                workflowVersion: '2.0-fixed'\n                            }\n                        },\n                        binary: {\n                            [key]: attachment\n                        }\n                    });\n                }\n            }\n        }\n        // Check for attachment metadata (from Gmail API)\n        else if (emailData.attachments && Array.isArray(emailData.attachments) && emailData.attachments.length > 0) {\n            console.log(`📎 Processing ${emailData.attachments.length} Gmail API attachments`);\n            \n            for (const attachment of emailData.attachments) {\n                if (attachment.size && attachment.size > 0) {\n                    console.log(`📄 Found attachment: ${attachment.filename} (${attachment.size} bytes)`);\n                    \n                    results.push({\n                        json: {\n                            documentId: `kmrl_${new Date().toISOString().slice(0,10).replace(/-/g,'')}_${Date.now()}_${attachment.filename}`.replace(/[^a-zA-Z0-9_.-]/g, '_'),\n                            filename: attachment.filename,\n                            mimeType: attachment.mimeType || 'application/octet-stream',\n                            size: attachment.size,\n                            attachmentId: attachment.attachmentId,\n                            source: 'gmail_api',\n                            hasAttachment: true,\n                            originalEmail: {\n                                id: emailData.id,\n                                subject: emailData.subject,\n                                from: safeString(emailData.from),\n                                date: emailData.date || emailData.internalDate,\n                                threadId: emailData.threadId\n                            },\n                            metadata: {\n                                needsDownload: true,\n                                kmrlRelevance: 'confirmed',\n                                stage: 'needs_download',\n                                workflowVersion: '2.0-fixed'\n                            }\n                        }\n                    });\n                }\n            }\n        }\n        // Process as text email if no attachments\n        else {\n            console.log(`💬 Processing as text email`);\n            \n            results.push({\n                json: {\n                    documentId: `kmrl_${new Date().toISOString().slice(0,10).replace(/-/g,'')}_${Date.now()}_text`,\n                    filename: `${emailData.subject || 'KMRL_Email'}.txt`,\n                    content: emailData.body || emailData.textPlain || emailData.snippet || '',\n                    mimeType: emailData.body ? 'text/html' : 'text/plain',\n                    source: 'gmail_text',\n                    hasAttachment: false,\n                    originalEmail: {\n                        id: emailData.id,\n                        subject: emailData.subject,\n                        from: safeString(emailData.from),\n                        date: emailData.date || emailData.internalDate,\n                        threadId: emailData.threadId\n                    },\n                    metadata: {\n                        kmrlRelevance: 'confirmed',\n                        stage: 'ready_for_storage',\n                        workflowVersion: '2.0-fixed'\n                    }\n                }\n            });\n        }\n        \n    } catch (error) {\n        console.error(`❌ Error processing item ${i + 1}: ${error.message}`);\n        \n        results.push({\n            json: {\n                status: 'error',\n                emailId: emailData.id,\n                subject: emailData.subject,\n                error: error.message,\n                timestamp: new Date().toISOString()\n            }\n        });\n    }\n}\n\nconsole.log(`\\n📊 Processing Summary:`);\nconsole.log(`📧 Input items: ${items.length}`);\nconsole.log(`📄 Documents created: ${results.length}`);\nconsole.log(`📎 With attachments: ${results.filter(r => r.json.hasAttachment).length}`);\nconsole.log(`💬 Text only: ${results.filter(r => !r.json.hasAttachment).length}`);\n\nreturn results;"
+      },
+      "id": "document-processor",
+      "name": "Document Processor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Store Documents in Database (Stage 1)\nconst items = $input.all();\nconst results = [];\n\nconsole.log(`💾 Stage 1: Storing ${items.length} documents in database`);\n\nfor (let i = 0; i < items.length; i++) {\n    const item = items[i];\n    \n    try {\n        console.log(`📄 Storing document ${i + 1}: ${item.json.filename}`);\n        \n        // Prepare data for storage\n        const emailData = item.json.originalEmail;\n        const storeData = {\n            source: \"n8n\",\n            messageId: emailData.id,\n            content: item.json.content || emailData.body || emailData.textPlain || emailData.snippet || \"\",\n            subject: emailData.subject || item.json.filename || \"KMRL Document\",\n            from: emailData.from || \"KMRL System\",\n            timestamp: emailData.date || emailData.internalDate || new Date().toISOString(),\n            hasBinary: item.json.hasAttachment || false,\n            filename: item.json.filename,\n            mimeType: item.json.mimeType,\n            size: item.json.size,\n            metadata: {\n                stage: \"storage\",\n                workflowSource: \"n8n-kmrl-processor\",\n                storeTimestamp: new Date().toISOString(),\n                kmrlRelevance: item.json.metadata?.kmrlRelevance || 'confirmed',\n                hasAttachment: item.json.hasAttachment || false,\n                originalDocumentId: item.json.documentId\n            }\n        };\n        \n        // Add binary data if available\n        if (item.binary && Object.keys(item.binary).length > 0) {\n            storeData.binary = {};\n            \n            for (const [key, attachment] of Object.entries(item.binary)) {\n                if (attachment && attachment.data) {\n                    storeData.binary[key] = {\n                        data: attachment.data,\n                        fileName: attachment.fileName || attachment.filename || `attachment_${key}`,\n                        mimeType: attachment.mimeType || 'application/octet-stream',\n                        fileSize: attachment.fileSize || 0\n                    };\n                    console.log(`  📎 ${storeData.binary[key].fileName}`);\n                }\n            }\n        }\n        \n        // Store in database\n        console.log(`💾 Storing: ${storeData.subject}`);\n        \n        const response = await fetch('http://127.0.0.1:5000/webhook/store-document?source=n8n', {\n            method: 'POST',\n            headers: {\n                'Content-Type': 'application/json',\n                'X-N8N-Source': 'kmrl-storage-workflow',\n                'User-Agent': 'n8n-kmrl-storage/2.0'\n            },\n            body: JSON.stringify(storeData)\n        });\n        \n        const responseData = await response.json();\n        \n        if (response.ok) {\n            console.log(`✅ Stored successfully: ${responseData.document?.id}`);\n            \n            results.push({\n                json: {\n                    status: 'stored',\n                    documentId: responseData.document?.id,\n                    originalDocumentId: item.json.documentId,\n                    filename: item.json.filename,\n                    subject: storeData.subject,\n                    hasAttachment: item.json.hasAttachment,\n                    storeTimestamp: new Date().toISOString(),\n                    message: responseData.message,\n                    originalEmail: emailData\n                },\n                binary: item.binary || {}\n            });\n        } else {\n            console.error(`❌ Storage failed: ${responseData.error}`);\n            \n            results.push({\n                json: {\n                    status: 'storage_error',\n                    originalDocumentId: item.json.documentId,\n                    filename: item.json.filename,\n                    error: responseData.error,\n                    timestamp: new Date().toISOString()\n                }\n            });\n        }\n        \n    } catch (error) {\n        console.error(`❌ Storage error: ${error.message}`);\n        \n        results.push({\n            json: {\n                status: 'error',\n                originalDocumentId: item.json.documentId,\n                error: error.message,\n                timestamp: new Date().toISOString()\n            }\n        });\n    }\n}\n\nconsole.log(`📊 Storage Summary:`);\nconsole.log(`💾 Stored: ${results.filter(r => r.json.status === 'stored').length}`);\nconsole.log(`❌ Errors: ${results.filter(r => r.json.status === 'error').length}`);\n\nreturn results;"
+      },
+      "id": "store-documents",
+      "name": "Store Documents (Stage 1)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Documents with AI (Stage 2)\nconst items = $input.all();\nconst results = [];\n\nconsole.log(`🤖 Stage 2: Processing ${items.length} stored documents with AI`);\n\nfor (let i = 0; i < items.length; i++) {\n    const item = items[i];\n    \n    // Only process successfully stored documents\n    if (item.json.status !== 'stored') {\n        console.log(`⏭️ Skipping non-stored item: ${item.json.status}`);\n        continue;\n    }\n    \n    try {\n        console.log(`🤖 Processing stored document ${i + 1}: ${item.json.filename}`);\n        \n        // Get stored document info\n        const documentId = item.json.documentId;\n        const emailData = item.json.originalEmail;\n        \n        // Prepare document for AI processing (Stage 2)\n        const processData = {\n            source: \"n8n\",\n            documentId: documentId,\n            content: emailData.body || emailData.textPlain || emailData.snippet || \"\",\n            subject: emailData.subject || \"KMRL Document\",\n            from: emailData.from,\n            timestamp: emailData.date || emailData.internalDate || new Date().toISOString(),\n            messageId: emailData.id,\n            hasBinary: Object.keys(item.binary || {}).length > 0,\n            metadata: {\n                stage: \"processing\",\n                storedDocumentId: documentId,\n                processTimestamp: new Date().toISOString(),\n                workflowVersion: \"2.0-fixed\"\n            }\n        };\n        \n        // Add binary data if available\n        if (item.binary && Object.keys(item.binary).length > 0) {\n            processData.binary = {};\n            \n            for (const [key, attachment] of Object.entries(item.binary)) {\n                if (attachment && attachment.data) {\n                    processData.binary[key] = {\n                        data: attachment.data,\n                        fileName: attachment.fileName || attachment.filename || `attachment_${key}`,\n                        mimeType: attachment.mimeType || 'application/octet-stream',\n                        fileSize: attachment.fileSize || 0\n                    };\n                    console.log(`  📄 ${processData.binary[key].fileName}`);\n                }\n            }\n        }\n        \n        // Send to backend for AI processing\n        console.log(`🤖 Processing with AI: ${processData.subject}`);\n        \n        const response = await fetch('http://127.0.0.1:5000/webhook/document?source=n8n', {\n            method: 'POST',\n            headers: {\n                'Content-Type': 'application/json',\n                'X-N8N-Source': 'kmrl-processing-workflow',\n                'User-Agent': 'n8n-kmrl-processor/2.0'\n            },\n            body: JSON.stringify(processData)\n        });\n        \n        const responseData = await response.json();\n        \n        if (response.ok) {\n            console.log(`✅ AI Processing successful: ${responseData.document?.id}`);\n            \n            results.push({\n                json: {\n                    status: 'processed',\n                    documentId: responseData.document?.id,\n                    originalDocumentId: item.json.originalDocumentId,\n                    subject: processData.subject,\n                    filename: item.json.filename,\n                    assignedDepartment: responseData.document?.assigned_department,\n                    priority: responseData.document?.priority,\n                    confidence: responseData.document?.confidence,\n                    multiDepartment: responseData.document?.multi_department || false,\n                    departments: responseData.document?.departments_detected || [],\n                    analysisMethod: responseData.document?.analysis_method || 'RAG',\n                    message: responseData.message,\n                    processingTime: responseData.processing_time,\n                    timestamp: new Date().toISOString(),\n                    documentUrl: `http://localhost:3001/document/${responseData.document?.id}`\n                }\n            });\n        } else {\n            console.error(`❌ AI Processing failed: ${responseData.error}`);\n            \n            results.push({\n                json: {\n                    status: 'processing_error',\n                    documentId: item.json.documentId,\n                    originalDocumentId: item.json.originalDocumentId,\n                    subject: processData.subject,\n                    filename: item.json.filename,\n                    error: responseData.error,\n                    timestamp: new Date().toISOString()\n                }\n            });\n        }\n        \n    } catch (error) {\n        console.error(`❌ Processing error: ${error.message}`);\n        \n        results.push({\n            json: {\n                status: 'error',\n                documentId: item.json.documentId,\n                originalDocumentId: item.json.originalDocumentId,\n                error: error.message,\n                timestamp: new Date().toISOString()\n            }\n        });\n    }\n}\n\nconsole.log(`📊 AI Processing Summary:`);\nconsole.log(`🤖 Processed: ${results.filter(r => r.json.status === 'processed').length}`);\nconsole.log(`❌ Errors: ${results.filter(r => r.json.status === 'error').length}`);\nconsole.log(`📄 Multi-department: ${results.filter(r => r.json.multiDepartment).length}`);\n\nreturn results;"
+      },
+      "id": "process-documents",
+      "name": "Process Documents (Stage 2)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Gmail Scanner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Scanner": {
+      "main": [
+        [
+          {
+            "node": "Document Processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Document Processor": {
+      "main": [
+        [
+          {
+            "node": "Store Documents (Stage 1)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Documents (Stage 1)": {
+      "main": [
+        [
+          {
+            "node": "Process Documents (Stage 2)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-10-06T10:00:00.000Z",
+  "updatedAt": "2025-10-06T10:00:00.000Z",
+  "settings": {
+    "timezone": "Asia/Kolkata"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2025-10-06T10:00:00.000Z",
+      "updatedAt": "2025-10-06T10:00:00.000Z",
+      "id": "kmrl-docs",
+      "name": "KMRL Documents"
+    }
+  ],
+  "triggerCount": 0,
+  "versionId": "v2-fixed"
+}

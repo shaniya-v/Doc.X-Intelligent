@@ -1,0 +1,177 @@
+{
+  "name": "KMRL Email Processing - Simple",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 2
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Check Every 2 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 5,
+        "simple": false,
+        "options": {
+          "q": "is:unread subject:KMRL newer_than:1d"
+        }
+      },
+      "id": "gmail-search",
+      "name": "Search KMRL Emails",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.subject }}",
+              "operation": "contains",
+              "value2": "KMRL"
+            }
+          ]
+        }
+      },
+      "id": "check-kmrl",
+      "name": "Verify KMRL Subject",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "markAsRead",
+        "messageId": "={{ $json.id }}"
+      },
+      "id": "mark-read",
+      "name": "Mark as Read",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        900,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:5000/webhook/document",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"messageId\": $json.id,\n  \"subject\": $json.subject,\n  \"from\": $json.from,\n  \"content\": $json.snippet,\n  \"timestamp\": $json.date,\n  \"source\": \"gmail\",\n  \"attachments\": $json.attachments || []\n} }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "send-to-backend",
+      "name": "Send to DOC.X Backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "no-kmrl-skip",
+      "name": "No KMRL - Skip",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        900,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Check Every 2 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Search KMRL Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search KMRL Emails": {
+      "main": [
+        [
+          {
+            "node": "Verify KMRL Subject",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify KMRL Subject": {
+      "main": [
+        [
+          {
+            "node": "Mark as Read",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No KMRL - Skip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark as Read": {
+      "main": [
+        [
+          {
+            "node": "Send to DOC.X Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-10-03T05:30:00.000Z",
+  "versionId": "simple-kmrl-v1.0"
+}
