@@ -59,63 +59,61 @@
 ## 🏗️ System Architecture
 
 ```mermaid
-graph TB
-    subgraph Email["📧 Email Processing"]
-        A[📧 Gmail] --> B[🔄 N8N Workflow]
-        B --> C[📎 Attachment Extraction]
-        C --> D[🌐 Webhook]
-    end
+graph TD
+    A[📧 Gmail] --> B[🔄 N8N Workflow]
+    B --> C[📎 Extract Attachments]
+    C --> D[🌐 Webhook Call]
+    D --> E[🐍 Flask Backend]
+    E --> F[🤖 OpenRouter AI]
+    E --> G[🗄️ Supabase Database]
+    E --> H[⚛️ React Frontend]
+    H --> I[🔐 Authentication]
+    H --> J[📊 Dashboard]
+    H --> K[💬 AI Chatbot]
+    H --> L[🔍 Document Search]
     
-    subgraph Backend["🐍 Backend Services"]
-        D --> E[🐍 Flask Backend]
-        E --> F[🤖 OpenRouter AI]
-        E --> G[🗄️ Supabase DB]
-        E --> H[📄 Document Processor]
-    end
-    
-    subgraph Frontend["⚛️ Frontend Application"]
-        I[⚛️ React Frontend] --> J[🔐 Authentication]
-        J --> K[📊 Department Dashboard]
-        K --> L[💬 AI Chatbot]
-        K --> M[🔍 Document Search]
-        K --> N[📋 Task Management]
-    end
-    
-    subgraph AI["🤖 AI Services"]
-        F --> O[🎯 Department Routing]
-        F --> P[📝 Content Analysis]
-        F --> Q[💭 Chat Responses]
-    end
-    
-    E <--> I
-    G --> I
-    
-    classDef emailStyle fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef backendStyle fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    classDef frontendStyle fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
-    classDef aiStyle fill:#fff9c4,stroke:#f57f17,stroke-width:2px
-    
-    class A,B,C,D emailStyle
-    class E,G,H backendStyle
-    class I,J,K,L,M,N frontendStyle
-    class F,O,P,Q aiStyle
+    F --> M[🎯 Department Routing]
+    F --> N[📝 Content Analysis]
+    F --> O[💭 Chat Responses]
 ```
 
-### 🔄 Simplified Architecture Flow
+### 🔄 Data Flow Overview
 
 ```mermaid
-flowchart LR
-    A[📧 Email] --> B[🔄 N8N] --> C[🐍 Backend] --> D[🗄️ Database]
-    C --> E[🤖 AI] --> C
-    C --> F[⚛️ Frontend] --> G[👤 User]
+sequenceDiagram
+    participant Gmail as 📧 Gmail
+    participant N8N as 🔄 N8N
+    participant Backend as 🐍 Backend
+    participant AI as 🤖 AI
+    participant DB as 🗄️ Database
+    participant Frontend as ⚛️ Frontend
     
-    classDef primary fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
-    classDef secondary fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-    classDef accent fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
-    
-    class A,B primary
-    class C,E secondary  
-    class D,F,G accent
+    Gmail->>N8N: New Email with Attachment
+    N8N->>Backend: Process Document
+    Backend->>AI: Analyze Content
+    AI->>Backend: Department Assignment
+    Backend->>DB: Store Document
+    Frontend->>Backend: Request Documents
+    Backend->>Frontend: Display Results
+```
+
+### 📋 Architecture Components
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   📧 Gmail      │───▶│   🔄 N8N        │───▶│  🐍 Flask       │
+│   Email Source │    │   Automation    │    │  Backend API    │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                                                       │
+                                              ┌────────▼────────┐
+                                              │  🤖 OpenRouter  │
+                                              │  AI Processing  │
+                                              └────────┬────────┘
+                                                       │
+┌─────────────────┐    ┌─────────────────┐    ┌───────▼─────────┐
+│  ⚛️ React       │◀───│  🗄️ Supabase    │◀───│  📄 Document    │
+│  Frontend UI    │    │  Database       │    │  Processor      │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
 ---
