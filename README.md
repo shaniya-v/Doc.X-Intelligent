@@ -60,20 +60,20 @@
 
 ```mermaid
 graph TB
-    subgraph "Email Processing"
+    subgraph Email["📧 Email Processing"]
         A[📧 Gmail] --> B[🔄 N8N Workflow]
         B --> C[📎 Attachment Extraction]
         C --> D[🌐 Webhook]
     end
     
-    subgraph "Backend Services"
+    subgraph Backend["🐍 Backend Services"]
         D --> E[🐍 Flask Backend]
         E --> F[🤖 OpenRouter AI]
         E --> G[🗄️ Supabase DB]
         E --> H[📄 Document Processor]
     end
     
-    subgraph "Frontend Application"
+    subgraph Frontend["⚛️ Frontend Application"]
         I[⚛️ React Frontend] --> J[🔐 Authentication]
         J --> K[📊 Department Dashboard]
         K --> L[💬 AI Chatbot]
@@ -81,7 +81,7 @@ graph TB
         K --> N[📋 Task Management]
     end
     
-    subgraph "AI Services"
+    subgraph AI["🤖 AI Services"]
         F --> O[🎯 Department Routing]
         F --> P[📝 Content Analysis]
         F --> Q[💭 Chat Responses]
@@ -90,11 +90,32 @@ graph TB
     E <--> I
     G --> I
     
-    style A fill:#e1f5fe
-    style B fill:#f3e5f5
-    style E fill:#fff3e0
-    style I fill:#e8f5e8
-    style F fill:#fff9c4
+    classDef emailStyle fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef backendStyle fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef frontendStyle fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef aiStyle fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    
+    class A,B,C,D emailStyle
+    class E,G,H backendStyle
+    class I,J,K,L,M,N frontendStyle
+    class F,O,P,Q aiStyle
+```
+
+### 🔄 Simplified Architecture Flow
+
+```mermaid
+flowchart LR
+    A[📧 Email] --> B[🔄 N8N] --> C[🐍 Backend] --> D[🗄️ Database]
+    C --> E[🤖 AI] --> C
+    C --> F[⚛️ Frontend] --> G[👤 User]
+    
+    classDef primary fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef secondary fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef accent fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    
+    class A,B primary
+    class C,E secondary  
+    class D,F,G accent
 ```
 
 ---
