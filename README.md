@@ -1,6 +1,107 @@
-# 🚀 DOC.X Intelligent - AI-Powered Document Management System
+# 🚀 DOC.X Intelligent - AI-Powered Document Management Sy## 🏗️ System Architecture
 
 <div align="center">
+
+### 📊 Complete System Flow
+
+```mermaid
+flowchart TD
+    A[📧 Gmail] <div align="center">
+
+### 💬 Interactive Chat System
+
+```mermaid
+graph LR
+    A[👤 User Question] --> B[💬 Chat Interface]
+    B --> C[🔗 Backend API]
+    C --> D[🔍 Document Search]
+    C --> E[🤖 AI Processing]
+    D --> F[� Context Retrieval]
+    E --> G[💭 Response Generation]
+    F --> G
+    G --> H[📝 Smart Answer]
+    H --> B
+    
+    style A fill:#fce4ec,stroke:#c2185b
+    style E fill:#fff9c4,stroke:#f57f17
+    style H fill:#e8f5e8,stroke:#388e3c
+```
+
+### �🔄 Upload & Processing Flow
+
+```mermaid
+flowchart TD
+    Start([📤 Document Upload]) --> Check{📄 File Type?}
+    Check -->|PDF| PDF[📄 PDF Parser]
+    Check -->|Word| Word[📝 DOCX Parser]
+    Check -->|Excel| Excel[📊 XLSX Parser]
+    Check -->|CSV| CSV[📋 CSV Parser]
+    Check -->|Text| Text[📃 Text Parser]
+    
+    PDF --> Extract[📖 Content Extraction]
+    Word --> Extract
+    Excel --> Extract
+    CSV --> Extract
+    Text --> Extract
+    
+    Extract --> AI[🤖 AI Analysis]
+    AI --> Route[🎯 Department Classification]
+    Route --> Store[💾 Database Storage]
+    Store --> Success([✅ Upload Complete])
+    
+    style Start fill:#e3f2fd,stroke:#1976d2
+    style AI fill:#fff9c4,stroke:#f57f17
+    style Success fill:#e8f5e8,stroke:#388e3c
+```
+
+</div>    B --> C[🐍 Backend]
+    C --> D[🤖 AI]
+    C --> E[🗄️ Database]
+    C --> F[⚛️ Frontend]
+    
+    style A fill:#e3f2fd
+    style B fill:#f3e5f5
+    style C fill:#fff3e0
+    style D fill:#fff9c4
+    style E fill:#e8f5e8
+    style F fill:#fce4ec
+```
+
+### 🔄 Data Processing Pipeline
+
+```mermaid
+graph LR
+    subgraph Input
+    A[📧 Email] --> B[📎 Attachment]
+    end
+    
+    subgraph Processing
+    B --> C[🔄 N8N Extract]
+    C --> D[🐍 Backend Process]
+    D --> E[🤖 AI Analyze]
+    end
+    
+    subgraph Output
+    E --> F[🎯 Route to Dept]
+    F --> G[💾 Store in DB]
+    G --> H[📱 Display to User]
+    end
+```
+
+### 💬 Chatbot Intelligence Flow
+
+```mermaid
+sequenceDiagram
+    User->>Chatbot: Ask Question
+    Chatbot->>Backend: Query Request
+    Backend->>Database: Fetch Context
+    Backend->>AI: Generate Response
+    AI->>Backend: Smart Answer
+    Backend->>Chatbot: Response + Sources
+    Chatbot->>User: Display Result
+```
+
+</div>v align="center">
 
 ![DOC.X Intelligent Logo](https://img.shields.io/badge/DOC.X-Intelligent-blue?style=for-the-badge&logo=document)
 
@@ -97,37 +198,26 @@
 
 ## 📊 Data Flow
 
+<div align="center">
+
 ### 🔄 Document Processing Workflow
 
-**Step 1: Email Reception**
-```
-📧 Gmail → Receives email with attachment → Triggers N8N workflow
-```
-
-**Step 2: Document Extraction**
-```
-🔄 N8N → Extracts attachment & metadata → Prepares for processing
-```
-
-**Step 3: Backend Processing**
-```
-🌐 Webhook → 🐍 Flask Backend → 📄 Process binary content
-```
-
-**Step 4: AI Analysis**
-```
-🤖 OpenRouter AI → Analyzes document content → Determines department & priority
+```mermaid
+graph TD
+    A[📧 Email with Attachment] --> B[🔄 N8N Extraction]
+    B --> C[🌐 Webhook to Backend]
+    C --> D[🐍 Flask Processing]
+    D --> E[🤖 AI Analysis]
+    E --> F[🎯 Department Routing]
+    F --> G[� Supabase Storage]
+    G --> H[📱 Frontend Display]
+    
+    style A fill:#e3f2fd,stroke:#1976d2
+    style E fill:#fff9c4,stroke:#f57f17
+    style G fill:#e8f5e8,stroke:#388e3c
 ```
 
-**Step 5: Database Storage**
-```
-🗄️ Supabase → Stores document + metadata → Makes available for frontend
-```
-
-**Step 6: User Access**
-```
-⚛️ Frontend → Requests documents → 📊 Displays in department dashboard
-```
+</div>
 
 ### 💬 Chatbot Interaction Process
 
