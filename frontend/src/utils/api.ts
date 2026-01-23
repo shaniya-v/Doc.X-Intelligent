@@ -46,9 +46,9 @@ export const documentApi = {
     return response.data;
   },
 
-  // Get documents by department
-  getDocumentsByDepartment: async (department: string, limit: number = 50): Promise<any> => {
-    const response = await api.get(`/documents/department/${department}?limit=${limit}`);
+  // Get all documents
+  getDocuments: async (limit: number = 100): Promise<DocumentsResponse> => {
+    const response = await api.get(`/documents/all?limit=${limit}`);
     return response.data;
   },
 

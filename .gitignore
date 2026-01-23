@@ -120,3 +120,7 @@ $RECYCLE.BIN/
 # OAuth Credentials
 google-oauth-credential.json
 .env.n8n
+
+# Gmail API Credentials
+gmail_credentials.json
+gmail_token.json

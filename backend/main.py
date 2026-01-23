@@ -80,6 +80,19 @@ class SearchResult(BaseModel):
     documents: List[Dict[str, Any]]
     total: int
 
+class EmailProcessRequest(BaseModel):
+    email_body: str
+    email_from: str
+    email_subject: str
+    message_id: str
+
+class EmailProcessResponse(BaseModel):
+    message_id: str
+    summary: str
+    department: str
+    confidence: float
+    embedding_stored: bool
+
 # Startup event
 @app.on_event("startup")
 async def startup_event():
@@ -128,6 +141,9 @@ async def health_check():
 @app.post("/api/documents/upload", response_model=DocumentUploadResponse)
 async def upload_document(
     file: UploadFile = File(...),
+    email_from: Optional[str] = None,
+    email_subject: Optional[str] = None,
+    email_body: Optional[str] = None,
     user_id: Optional[str] = None,
     source: str = "manual"
 ):
@@ -135,7 +151,7 @@ async def upload_document(
     Upload and process a document:
     1. Store in MinIO
     2. Parse content
-    3. Generate embeddings
+    3. Generate embeddings (combining document + email body if available)
     4. Classify department using RAG
     5. Store metadata in database
     """
@@ -161,13 +177,19 @@ async def upload_document(
         )
         logger.info(f"✅ Parsed {len(parsed_content)} characters")
         
-        # Generate embeddings
-        embedding = await embedding_service.generate_embedding(parsed_content)
+        # Combine document content with email body context if available
+        combined_content = parsed_content
+        if email_body:
+            combined_content = f"Email Context:\n{email_subject or ''}\n{email_body[:1000]}\n\nDocument Content:\n{parsed_content}"
+            logger.info(f"✅ Combined with email context")
+        
+        # Generate embeddings from combined content
+        embedding = await embedding_service.generate_embedding(combined_content)
         logger.info(f"✅ Generated embedding")
         
         # Classify department and generate summary using RAG
         classification_result = await department_classifier.classify_and_summarize(
-            content=parsed_content,
+            content=combined_content,
             embedding=embedding,
             filename=file.filename
         )
@@ -180,7 +202,9 @@ async def upload_document(
                 "filename": file.filename,
                 "object_path": object_path,
                 "department": classification_result['department'],
-                "content_preview": parsed_content[:500]
+                "content_preview": parsed_content[:500],
+                "email_from": email_from,
+                "email_subject": email_subject
             }
         )
         
@@ -196,6 +220,8 @@ async def upload_document(
             "user_id": user_id,
             "source": source,
             "vector_id": vector_id,
+            "email_from": email_from,
+            "email_subject": email_subject,
             "upload_date": datetime.utcnow().isoformat()
         }
         
@@ -214,6 +240,88 @@ async def upload_document(
         
     except Exception as e:
         logger.error(f"❌ Error processing document: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/emails/process", response_model=EmailProcessResponse)
+async def process_email(email_request: EmailProcessRequest):
+    """
+    Process email body:
+    1. Generate embeddings from email content
+    2. Store in vector database
+    3. Classify department using RAG
+    4. Generate summary
+    """
+    try:
+        logger.info(f"📧 Processing email: {email_request.email_subject}")
+        
+        # Clean and prepare email content
+        email_content = f"Subject: {email_request.email_subject}\n\n{email_request.email_body}"
+        
+        # Generate embeddings
+        embedding = await embedding_service.generate_embedding(email_content)
+        logger.info(f"✅ Generated email embedding")
+        
+        # Classify department and generate summary
+        classification_result = await department_classifier.classify_and_summarize(
+            content=email_content,
+            embedding=embedding,
+            filename=f"Email: {email_request.email_subject}"
+        )
+        logger.info(f"✅ Classified: {classification_result['department']}")
+        
+        # Store in vector database
+        vector_id = await embedding_service.store_embedding(
+            embedding=embedding,
+            metadata={
+                "type": "email",
+                "message_id": email_request.message_id,
+                "subject": email_request.email_subject,
+                "from": email_request.email_from,
+                "department": classification_result['department'],
+                "content_preview": email_content[:500]
+            }
+        )
+        
+        # Store email metadata in database
+        email_metadata = {
+            "message_id": email_request.message_id,
+            "email_from": email_request.email_from,
+            "email_subject": email_request.email_subject,
+            "department": classification_result['department'],
+            "summary": classification_result['summary'],
+            "confidence": classification_result['confidence'],
+            "vector_id": vector_id,
+            "processed_date": datetime.utcnow().isoformat()
+        }
+        
+        await database_service.store_email_metadata(email_metadata)
+        logger.info(f"✅ Email processed and stored: {email_request.message_id}")
+        
+        return EmailProcessResponse(
+            message_id=email_request.message_id,
+            summary=classification_result['summary'],
+            department=classification_result['department'],
+            confidence=classification_result['confidence'],
+            embedding_stored=True
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Error processing email: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/documents/all")
+async def get_all_documents():
+    """Get all documents (for debugging)"""
+    try:
+        # Check both tables
+        recent = database_service.client.table("recent_documents").select("*").execute()
+        docs = database_service.client.table("documents").select("*").execute()
+        return {
+            "recent_documents": recent.data,
+            "documents": docs.data
+        }
+    except Exception as e:
+        logger.error(f"❌ Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/documents/search", response_model=SearchResult)
@@ -271,6 +379,58 @@ async def get_documents_by_department(department: str, limit: int = 50):
         }
     except Exception as e:
         logger.error(f"❌ Error retrieving documents: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/departments/{department}/documents")
+async def get_department_documents(department: str, limit: int = 50):
+    """Get all documents for a specific department (alternative endpoint)"""
+    try:
+        documents = await database_service.get_documents_by_department(department, limit)
+        return {
+            "department": department,
+            "documents": documents,
+            "total": len(documents)
+        }
+    except Exception as e:
+        logger.error(f"❌ Error retrieving documents: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/departments/{department}/summary")
+async def get_department_summary(department: str):
+    """Get summary stats for a department"""
+    try:
+        documents = await database_service.get_documents_by_department(department, limit=1000)
+        
+        return {
+            "department": department,
+            "total_documents": len(documents),
+            "pending_tasks": sum(1 for d in documents if d.get('status') == 'pending'),
+            "recent_documents": documents[:5] if documents else []
+        }
+    except Exception as e:
+        logger.error(f"❌ Error retrieving department summary: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/documents/{document_id}/download")
+async def download_document(document_id: str):
+    """Generate download URL for document"""
+    try:
+        metadata = await database_service.get_document_metadata(document_id)
+        if not metadata:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        # Generate presigned download URL
+        download_url = await minio_service.generate_download_url(metadata['object_path'])
+        
+        return {
+            "document_id": document_id,
+            "filename": metadata['filename'],
+            "download_url": download_url
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error generating download URL: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/api/documents/{document_id}")

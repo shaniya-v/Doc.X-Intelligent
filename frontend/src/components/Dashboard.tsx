@@ -14,13 +14,15 @@ const Dashboard: React.FC = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [documentsResponse, statsResponse] = await Promise.all([
-          documentApi.getDocuments(),
-          documentApi.getDepartmentStats()
-        ]);
+        const documentsResponse = await documentApi.getDocuments();
         
         setDocuments(documentsResponse.documents);
-        setStats(statsResponse);
+        // Mock stats for now
+        setStats({
+          total_documents: documentsResponse.documents.length,
+          department_breakdown: {},
+          priority_distribution: { urgent: 0, high: 0, normal: 0, low: 0 }
+        });
       } catch (err) {
         setError('Failed to fetch data. Please check if the backend is running.');
         console.error('Error fetching data:', err);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { useAuth, DEPARTMENTS } from '../contexts/AuthContext';
 import AIAssistant from './AIAssistant';
-import HamburgerMenu from './HamburgerMenu';
 import DocumentSearch from './DocumentSearch';
 import PrivateDocuments from './PrivateDocuments';
 
@@ -42,29 +42,33 @@ interface Document {
 
 const DepartmentDashboard: React.FC = () => {
   const { user, logout } = useAuth();
+  const { departmentId } = useParams<{ departmentId: string }>();
+  const currentDepartment = DEPARTMENTS.find(d => d.id === departmentId) || user.department;
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [menuOpen, setMenuOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'tasks' | 'private' | 'search'>('tasks');
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    fetchDepartmentTasks();
-  }, [user.department]);
+    if (currentDepartment) {
+      fetchDepartmentTasks();
+    }
+  }, [currentDepartment]);
 
   const fetchDepartmentTasks = async () => {
+    if (!currentDepartment) return;
     try {
       setLoading(true);
-      const departmentParam = encodeURIComponent(user.department?.id || '');
-      const response = await fetch(`http://127.0.0.1:5000/api/documents?department=${departmentParam}`);
+      const departmentParam = encodeURIComponent(currentDepartment.id);
+      const response = await fetch(`http://localhost:8000/api/departments/${departmentParam}/documents`);
       
       if (response.ok) {
         const data = await response.json();
         const documents = data.documents || []; // Extract documents array from response
         
-        console.log('Fetched documents for', user.department?.id, ':', documents.length);
+        console.log('Fetched documents for', currentDepartment.id, ':', documents.length);
         console.log('Sample document:', documents[0]);
         
         // Convert documents to tasks format
@@ -240,7 +244,7 @@ const DepartmentDashboard: React.FC = () => {
       const task = tasks.find(t => t.id === taskId);
       if (!task) return;
 
-      const response = await fetch(`http://127.0.0.1:5000/api/tasks/${taskId}/complete`, {
+      const response = await fetch(`http://localhost:8000/api/tasks/${taskId}/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -263,7 +267,7 @@ const DepartmentDashboard: React.FC = () => {
     try {
       console.log('Viewing document:', documentId);
       // Open document in new tab for viewing with HTML format
-      window.open(`http://127.0.0.1:5000/api/documents/${documentId}?view=html`, '_blank');
+      window.open(`http://localhost:8000/api/documents/${documentId}`, '_blank');
     } catch (error) {
       console.error('Error viewing document:', error);
     }
@@ -272,7 +276,7 @@ const DepartmentDashboard: React.FC = () => {
   const downloadDocument = async (task: Task) => {
     try {
       console.log('Downloading document:', task.documentId);
-      const response = await fetch(`http://127.0.0.1:5000/api/download/${task.documentId}`);
+      const response = await fetch(`http://localhost:8000/api/documents/${task.documentId}/download`);
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
@@ -331,41 +335,27 @@ const DepartmentDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Hamburger Menu */}
-      <HamburgerMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
-      
+    <div className="px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      <header className="bg-white shadow-sm border-b border-gray-200 mb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+          <div className="flex justify-between items-center py-6">
             {/* Left side */}
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setMenuOpen(true)}
-                className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            <div className="flex items-center space-x-3">
+              <div 
+                className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold"
+                style={{ 
+                  backgroundColor: `${user.department?.color}20`, 
+                  color: user.department?.color 
+                }}
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
-              
-              <div className="flex items-center space-x-3">
-                <div 
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold"
-                  style={{ 
-                    backgroundColor: `${user.department?.color}20`, 
-                    color: user.department?.color 
-                  }}
-                >
-                  {user.department?.icon}
-                </div>
-                <div>
-                  <h1 className="text-xl font-semibold text-gray-900">
-                    {user.department?.name} Dashboard
-                  </h1>
-                  <p className="text-sm text-gray-500">Welcome, {user.username}</p>
-                </div>
+                {user.department?.icon}
+              </div>
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900">
+                  {user.department?.name} Dashboard
+                </h1>
+                <p className="text-sm text-gray-500">Welcome, {user.username}</p>
               </div>
             </div>
 
@@ -434,7 +424,7 @@ const DepartmentDashboard: React.FC = () => {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              Global Search
+              Document Search
             </button>
           </nav>
         </div>
@@ -442,84 +432,77 @@ const DepartmentDashboard: React.FC = () => {
         {/* Tab Content */}
         {activeTab === 'tasks' && (
           <div className="space-y-6">
-            {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                      </svg>
-                    </div>
+            {/* Department Header */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div 
+                    className="w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold"
+                    style={{ 
+                      backgroundColor: `${currentDepartment?.color}20`, 
+                      color: currentDepartment?.color 
+                    }}
+                  >
+                    {currentDepartment?.icon}
                   </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Total Tasks</p>
-                    <p className="text-2xl font-semibold text-gray-900">{tasks.length}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                      <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Due Today</p>
-                    <p className="text-2xl font-semibold text-gray-900">
-                      {tasks.filter(t => isDeadlineToday(t.deadline)).length}
-                    </p>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">
+                      {currentDepartment?.name} Department
+                    </h2>
+                    <p className="text-gray-600">{currentDepartment?.description}</p>
                   </div>
                 </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Completed</p>
-                    <p className="text-2xl font-semibold text-gray-900">
-                      {tasks.filter(t => t.completed).length}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                      <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.728-.833-2.498 0L4.316 15.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Overdue</p>
-                    <p className="text-2xl font-semibold text-gray-900">
-                      {tasks.filter(t => isOverdue(t.deadline) && !t.completed).length}
-                    </p>
-                  </div>
-                </div>
+                <button
+                  onClick={() => setAiOpen(true)}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-4l-4 4-4-4z" />
+                  </svg>
+                  AI Assistant
+                </button>
               </div>
             </div>
 
-            {/* Tasks Table */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-medium text-gray-900">Department Tasks</h3>
-              </div>
+            {/* Tasks Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {tasks.map((task) => (
+                <div key={task.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">{task.title}</h3>
+                      <p className="text-gray-600 text-sm mb-4 line-clamp-3">{task.description}</p>
+                      
+                      <div className="flex items-center space-x-4 text-sm text-gray-500">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          task.priority === 'urgent' ? 'bg-red-100 text-red-800' :
+                          task.priority === 'high' ? 'bg-orange-100 text-orange-800' :
+                          task.priority === 'normal' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {task.priority}
+                        </span>
+                        {task.deadline && (
+                          <span>Due: {new Date(task.deadline).toLocaleDateString()}</span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="ml-4 flex flex-col space-y-2">
+                      {task.fileUrl && (
+                        <a
+                          href={task.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        >
+                          View File
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
               
               {error && (
                 <div className="p-4 bg-red-50 border-l-4 border-red-400">

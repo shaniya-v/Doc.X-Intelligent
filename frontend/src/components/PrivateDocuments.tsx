@@ -30,7 +30,7 @@ const PrivateDocuments: React.FC = () => {
   const fetchPrivateDocuments = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`http://127.0.0.1:5000/api/private-documents?department=${user.department?.id}`);
+      const response = await fetch(`http://localhost:8000/api/private-documents?department=${user.department?.id}`);
       
       if (response.ok) {
         const data = await response.json();
@@ -82,7 +82,7 @@ const PrivateDocuments: React.FC = () => {
       formData.append('department', user.department?.id || '');
       formData.append('private', 'true');
 
-      const response = await fetch('http://127.0.0.1:5000/api/private-documents', {
+      const response = await fetch('http://localhost:8000/api/private-documents', {
         method: 'POST',
         body: formData
       });
@@ -110,7 +110,7 @@ const PrivateDocuments: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`http://127.0.0.1:5000/api/private-documents/${documentId}`, {
+      const response = await fetch(`http://localhost:8000/api/private-documents/${documentId}`, {
         method: 'DELETE'
       });
 
@@ -127,7 +127,7 @@ const PrivateDocuments: React.FC = () => {
 
   const downloadDocument = (document: PrivateDocument) => {
     if (document.fileName) {
-      window.open(`http://127.0.0.1:5000/api/private-documents/${document.id}/download`, '_blank');
+      window.open(`http://localhost:8000/api/private-documents/${document.id}/download`, '_blank');
     }
   };
 

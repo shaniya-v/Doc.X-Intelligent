@@ -19,7 +19,8 @@ class DatabaseService:
             raise ValueError("SUPABASE_URL and SUPABASE_KEY environment variables are required")
         
         self.client: Client = create_client(supabase_url, supabase_key)
-        self.table_name = "documents"
+        self.table_name = "recent_documents"
+        self.email_table_name = "emails"
         
         logger.info("Database service initialized")
     
@@ -37,6 +38,22 @@ class DatabaseService:
                 
         except Exception as e:
             logger.error(f"❌ Metadata storage failed: {e}")
+            raise
+    
+    async def store_email_metadata(self, metadata: Dict[str, Any]) -> str:
+        """Store email metadata in Supabase"""
+        try:
+            result = self.client.table(self.email_table_name).insert(metadata).execute()
+            
+            if result.data and len(result.data) > 0:
+                email_id = result.data[0].get('id')
+                logger.info(f"✅ Stored email metadata: {email_id}")
+                return str(email_id)
+            else:
+                raise Exception("No data returned from insert")
+                
+        except Exception as e:
+            logger.error(f"❌ Email metadata storage failed: {e}")
             raise
     
     async def get_document_metadata(self, document_id: str) -> Optional[Dict[str, Any]]:

@@ -9,7 +9,6 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
 [![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org/)
-[![Flask](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
 [![Supabase](https://img.shields.io/badge/Supabase-181818?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
 [![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white)](https://openai.com/)
 
@@ -70,13 +69,13 @@ mindmap
       Tailwind CSS
       Responsive Design
     Backend
-      Flask Python
+      FastAPI 
       OpenRouter AI
       Document Processing
       REST API
     Database
       Supabase PostgreSQL
-      Document Storage
+      Document Storage - minIO
       User Management
       Task Tracking
     Automation
@@ -114,7 +113,7 @@ flowchart TD
     
     C --> E[📁 Extract Attachment]
     E --> F[🌐 Send to Webhook]
-    F --> G[🐍 Flask Backend]
+    F --> G[🐍 FastAPI Backend]
     
     G --> H[📄 Process Document]
     H --> I[🤖 AI Analysis]
@@ -202,7 +201,7 @@ graph TB
     
     subgraph "🔄 Processing Layer"
         D[N8N Automation]
-        E[Flask Backend]
+        E[FastAPI Backend]
         F[OpenRouter AI]
     end
     
@@ -306,7 +305,7 @@ graph LR
 
 ```mermaid
 graph LR
-    A[🐍 Flask 2.x] --> B[🤖 OpenRouter API]
+    A[🐍 FastAPi 2.x] --> B[🤖 OpenRouter API]
     B --> C[🗄️ Supabase Client]
     C --> D[📄 Document Processing]
     D --> E[🔐 JWT Authentication]
@@ -426,7 +425,7 @@ n8n start
 ```
 Doc.X-Intelligent/
 ├── 📁 backend/
-│   ├── 🐍 app.py                 # Main Flask application
+│   ├── 🐍 main.py               
 │   ├── 📄 requirements.txt       # Python dependencies
 │   ├── 🤖 ai_classifier.py       # AI routing logic
 │   ├── 📄 document_processor.py  # File processing utilities
@@ -589,7 +588,7 @@ POST   /api/private-documents           # Upload private document
 OPENROUTER_API_KEY=your_openrouter_key
 SUPABASE_URL=your_supabase_url
 SUPABASE_KEY=your_supabase_anon_key
-FLASK_ENV=development
+FastAPI_ENV=development
 CORS_ORIGINS=http://localhost:3001
 
 # N8N Configuration
@@ -720,7 +719,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - **🗄️ Supabase** - Database and Authentication
 - **🔄 N8N** - Workflow Automation
 - **⚛️ React Team** - Frontend Framework
-- **🐍 Flask Community** - Backend Framework
+- **🐍 FastAPi Community** - Backend Framework
 
 ---
 

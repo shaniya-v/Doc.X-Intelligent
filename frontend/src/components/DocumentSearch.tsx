@@ -35,7 +35,7 @@ const DocumentSearch: React.FC = () => {
         department: departmentFilter
       });
 
-      const response = await fetch(`http://127.0.0.1:5000/api/search?${params}`);
+      const response = await fetch(`http://localhost:8000/api/documents/search?${params}`);
       
       if (response.ok) {
         const results = await response.json();
@@ -79,7 +79,7 @@ const DocumentSearch: React.FC = () => {
   const downloadDocument = (result: SearchResult) => {
     if (result.fileName) {
       // Assuming we have a download endpoint
-      window.open(`http://127.0.0.1:5000/api/download/${result.id}`, '_blank');
+      window.open(`http://localhost:8000/api/documents/${result.id}/download`, '_blank');
     } else {
       openDocument(result.id);
     }
