@@ -117,3 +117,6 @@ $RECYCLE.BIN/
 *.njsproj
 *.sln
 *.sw?
+# OAuth Credentials
+google-oauth-credential.json
+.env.n8n

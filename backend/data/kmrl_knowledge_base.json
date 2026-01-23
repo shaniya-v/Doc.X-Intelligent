@@ -27,6 +27,38 @@
     ]
   },
   {
+    "content": "Civil engineering works for railway infrastructure including track laying, platform construction, and structural maintenance",
+    "department": "Engineering",
+    "keywords": [
+      "civil",
+      "engineering",
+      "railway",
+      "works",
+      "infrastructure",
+      "construction",
+      "track",
+      "platform",
+      "structural",
+      "renovation",
+      "repair"
+    ],
+    "malayalam_keywords": [
+      "സിവിൽ",
+      "എൻജിനീയറിംഗ്",
+      "റെയിൽവേ",
+      "പണി",
+      "അടിസ്ഥാന സൗകര്യം"
+    ],
+    "confidence": 1.0,
+    "examples": [
+      "civil engineering",
+      "railway works",
+      "railway construction",
+      "infrastructure development",
+      "renovation work"
+    ]
+  },
+  {
     "content": "Metro rail track inspection report showing wear and tear requiring replacement of rail sections",
     "department": "Engineering",
     "keywords": [
