@@ -19,7 +19,7 @@ class DatabaseService:
             raise ValueError("SUPABASE_URL and SUPABASE_KEY environment variables are required")
         
         self.client: Client = create_client(supabase_url, supabase_key)
-        self.table_name = "recent_documents"
+        self.table_name = "documents"
         self.email_table_name = "emails"
         
         logger.info("Database service initialized")
@@ -61,8 +61,12 @@ class DatabaseService:
         try:
             result = self.client.table(self.table_name).select("*").eq("id", document_id).execute()
             
+            logger.info(f"Query result for {document_id}: {result.data}")
+            
             if result.data and len(result.data) > 0:
                 return result.data[0]
+            
+            logger.warning(f"No metadata found for document_id: {document_id}")
             return None
             
         except Exception as e:
@@ -72,16 +76,23 @@ class DatabaseService:
     async def get_documents_by_department(
         self,
         department: str,
-        limit: int = 50
+        limit: int = 50,
+        user_email: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Get all documents for a department"""
+        """Get all documents for a department (excluding private docs unless owned by user)"""
         try:
-            result = self.client.table(self.table_name)\
-                .select("*")\
-                .eq("department", department)\
-                .order("upload_date", desc=True)\
-                .limit(limit)\
-                .execute()
+            query = self.client.table(self.table_name).select("*")
+            
+            # Filter by department
+            query = query.eq("department", department)
+            
+            # Exclude private documents unless owned by user
+            if user_email:
+                query = query.or_(f"is_private.eq.false,owner_email.eq.{user_email}")
+            else:
+                query = query.eq("is_private", False)
+            
+            result = query.order("upload_date", desc=True).limit(limit).execute()
             
             return result.data if result.data else []
             

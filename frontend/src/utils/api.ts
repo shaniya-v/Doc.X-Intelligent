@@ -1,12 +1,13 @@
 import axios from 'axios';
 import { Document, DepartmentStats, DocumentsResponse } from '../types';
 
-// FastAPI backend URL
-const API_BASE_URL = 'http://localhost:8000/api';
+// FastAPI backend URL - use environment variable or fallback to localhost
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_ENDPOINT = `${API_BASE_URL}/api`;
 
 // Create API instance
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: API_ENDPOINT,
   timeout: 30000, // Increased for file uploads
   headers: {
     'Content-Type': 'application/json',
@@ -62,6 +63,18 @@ export const documentApi = {
   getDownloadUrl: async (documentId: string): Promise<string> => {
     const doc = await documentApi.getDocument(documentId);
     return doc.download_url;
+  },
+
+  // Get documents by department
+  getDocumentsByDepartment: async (department: string): Promise<any> => {
+    const response = await api.get(`/documents/department/${department}`);
+    return response.data;
+  },
+
+  // Get department tasks
+  getDepartmentTasks: async (department: string): Promise<any> => {
+    const response = await api.get(`/departments/${department}/tasks`);
+    return response.data;
   }
 };
 

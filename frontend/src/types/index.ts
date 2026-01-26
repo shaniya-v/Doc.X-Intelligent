@@ -2,14 +2,18 @@
 export interface Document {
   id: string;
   title: string;
+  filename?: string;
   content: string | null;
+  summary?: string;
   source: string;
+  department?: string;
   assigned_department: string;
   confidence: number;
   priority: 'urgent' | 'high' | 'normal' | 'low';
   language: string;
   status: string;
   created_at: string;
+  upload_date?: string;
   updated_at?: string;
   binary_data?: any;
   content_extracted?: boolean;
@@ -69,12 +73,13 @@ export interface Document {
 
 // Department types
 export interface Department {
+  id: string;
   name: string;
-  displayName: string;
-  malayalamName: string;
+  displayName?: string;
+  malayalamName?: string;
   color: string;
   icon: string;
-  description: string;
+  description?: string;
 }
 
 // Stats types

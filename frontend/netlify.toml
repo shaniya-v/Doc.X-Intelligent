@@ -1,0 +1,30 @@
+# Netlify Configuration for Doc.X Frontend
+
+[build]
+  # Build command
+  command = "npm run build"
+  
+  # Directory with built files
+  publish = "dist"
+  
+  # Base directory (optional)
+  base = "frontend"
+
+[build.environment]
+  # Node version
+  NODE_VERSION = "18"
+
+# Redirect all requests to index.html for client-side routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Custom headers for security
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"

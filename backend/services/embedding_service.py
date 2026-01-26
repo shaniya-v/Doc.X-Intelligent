@@ -88,10 +88,25 @@ class EmbeddingService:
             if not document_id:
                 document_id = str(uuid.uuid4())
             
+            # Sanitize metadata - ChromaDB only supports ASCII characters
+            sanitized_metadata = {}
+            for key, value in metadata.items():
+                if value is not None:
+                    # Convert to string and encode to ASCII, replacing non-ASCII chars
+                    try:
+                        if isinstance(value, str):
+                            sanitized_metadata[key] = value.encode('ascii', 'replace').decode('ascii')
+                        else:
+                            sanitized_metadata[key] = str(value).encode('ascii', 'replace').decode('ascii')
+                    except Exception:
+                        # Skip problematic fields
+                        logger.warning(f"Skipping metadata field {key} due to encoding issues")
+                        continue
+            
             # Store in ChromaDB
             self.collection.add(
                 embeddings=[embedding],
-                metadatas=[metadata],
+                metadatas=[sanitized_metadata],
                 ids=[document_id]
             )
             
@@ -125,10 +140,19 @@ class EmbeddingService:
             documents = []
             if results['ids'] and len(results['ids'][0]) > 0:
                 for i in range(len(results['ids'][0])):
+                    metadata = results['metadatas'][0][i] if results['metadatas'] else {}
+                    distance = results['distances'][0][i] if 'distances' in results else 1.0
+                    
+                    # Convert distance to similarity score (lower distance = higher similarity)
+                    # ChromaDB uses cosine distance, so similarity = 1 - distance
+                    score = max(0.0, 1.0 - distance) if distance is not None else 0.0
+                    
                     documents.append({
                         "id": results['ids'][0][i],
-                        "metadata": results['metadatas'][0][i],
-                        "distance": results['distances'][0][i] if 'distances' in results else None
+                        "document_id": results['ids'][0][i],  # Add document_id for consistency
+                        "metadata": metadata,
+                        "distance": distance,
+                        "score": score  # Similarity score (0-1, higher is better)
                     })
             
             logger.info(f"✅ Found {len(documents)} similar documents")

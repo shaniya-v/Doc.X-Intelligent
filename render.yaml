@@ -1,0 +1,49 @@
+# Render.com deployment configuration for Doc.X Backend
+
+services:
+  # FastAPI Backend Service
+  - type: web
+    name: docx-intelligent-backend
+    runtime: python
+    plan: starter  # Can upgrade to standard/pro for more resources
+    region: oregon  # Choose closest region
+    branch: main  # Deploy from main branch
+    rootDir: backend  # Backend code location
+    
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+    
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.18
+      
+      - key: SUPABASE_URL
+        sync: false  # Set in Render dashboard
+      
+      - key: SUPABASE_KEY
+        sync: false  # Set in Render dashboard
+      
+      - key: STORAGE_BUCKET
+        value: documents
+      
+      - key: OPENROUTER_API_KEY
+        sync: false  # Set in Render dashboard
+      
+      - key: OPENAI_API_KEY
+        sync: false  # Set in Render dashboard
+      
+      - key: ENVIRONMENT
+        value: production
+      
+      - key: LOG_LEVEL
+        value: INFO
+      
+      - key: PORT
+        value: 8000
+    
+    healthCheckPath: /health
+    
+    autoDeploy: true  # Auto-deploy on git push
+
+# Note: ChromaDB will run embedded within the backend service
+# No separate service needed - uses local ChromaDB instance

@@ -30,37 +30,28 @@ const PrivateDocuments: React.FC = () => {
   const fetchPrivateDocuments = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:8000/api/private-documents?department=${user.department?.id}`);
+      const userEmail = user.email || `${user.department?.id}@kmrl.com`;
+      const response = await fetch(`' + import.meta.env.VITE_API_URL + '/api/private-documents?user_email=${encodeURIComponent(userEmail)}`);
       
       if (response.ok) {
         const data = await response.json();
-        setDocuments(data);
+        // Transform database documents to match component interface
+        const transformedDocs = data.map((doc: any) => ({
+          id: doc.id,
+          title: doc.filename || 'Untitled Document',
+          content: doc.summary || '',
+          fileName: doc.filename,
+          fileSize: doc.file_size,
+          mimeType: doc.file_type,
+          created_at: doc.created_at || doc.upload_date,
+          updated_at: doc.updated_at || doc.created_at || doc.upload_date,
+          tags: [],
+          notes: doc.summary || ''
+        }));
+        setDocuments(transformedDocs);
       } else {
         console.error('Failed to fetch private documents');
-        // Fallback: show sample data
-        setDocuments([
-          {
-            id: '1',
-            title: `${user.department?.name} Internal Procedures`,
-            content: 'Department-specific internal procedures and guidelines...',
-            fileName: 'procedures.pdf',
-            fileSize: 245678,
-            mimeType: 'application/pdf',
-            created_at: '2025-10-01T10:00:00Z',
-            updated_at: '2025-10-06T14:30:00Z',
-            tags: ['procedures', 'internal', 'guidelines'],
-            notes: 'Updated with latest protocol changes'
-          },
-          {
-            id: '2',
-            title: `${user.department?.name} Meeting Notes`,
-            content: 'Weekly team meeting notes and action items...',
-            created_at: '2025-10-05T09:00:00Z',
-            updated_at: '2025-10-05T09:00:00Z',
-            tags: ['meetings', 'notes', 'team'],
-            notes: 'Weekly sync meeting'
-          }
-        ]);
+        setDocuments([]);
       }
     } catch (error) {
       console.error('Error fetching private documents:', error);
@@ -76,20 +67,26 @@ const PrivateDocuments: React.FC = () => {
       
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('title', title);
-      formData.append('notes', notes);
-      formData.append('tags', JSON.stringify(tags));
-      formData.append('department', user.department?.id || '');
-      formData.append('private', 'true');
+      formData.append('user_id', user.username || 'anonymous');
+      formData.append('user_email', user.email || `${user.department?.id}@kmrl.com`);
+      formData.append('source', 'manual_upload');
+      formData.append('is_private', 'true');
+      formData.append('task_type', 'finished');
+      formData.append('description', notes);
+      
+      if (user.department) {
+        formData.append('source_department', user.department.id);
+      }
 
-      const response = await fetch('http://localhost:8000/api/private-documents', {
+      const response = await fetch(import.meta.env.VITE_API_URL + '/api/documents/upload', {
         method: 'POST',
         body: formData
       });
 
       if (response.ok) {
-        const newDocument = await response.json();
-        setDocuments(prev => [newDocument, ...prev]);
+        const result = await response.json();
+        // Refresh the documents list
+        await fetchPrivateDocuments();
         setShowUploadModal(false);
         return true;
       } else {
@@ -110,12 +107,12 @@ const PrivateDocuments: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:8000/api/private-documents/${documentId}`, {
+      const response = await fetch(`' + import.meta.env.VITE_API_URL + '/api/documents/${documentId}`, {
         method: 'DELETE'
       });
 
       if (response.ok) {
-        setDocuments(prev => prev.filter(doc => doc.id !== documentId));
+        await fetchPrivateDocuments();
         if (selectedDocument?.id === documentId) {
           setSelectedDocument(null);
         }
@@ -126,8 +123,8 @@ const PrivateDocuments: React.FC = () => {
   };
 
   const downloadDocument = (document: PrivateDocument) => {
-    if (document.fileName) {
-      window.open(`http://localhost:8000/api/private-documents/${document.id}/download`, '_blank');
+    if (document.id) {
+      window.open(`' + import.meta.env.VITE_API_URL + '/api/documents/${document.id}/download`, '_blank');
     }
   };
 

@@ -12,15 +12,13 @@ logger = logging.getLogger(__name__)
 class DepartmentClassifier:
     
     DEPARTMENTS = [
+        "Engineering",
         "Finance",
         "HR",
         "Operations",
-        "Engineering",
-        "Sales",
-        "Marketing",
-        "Legal",
-        "IT",
-        "Customer Support",
+        "Safety",
+        "Admin",
+        "Security",
         "General"
     ]
     
@@ -81,11 +79,17 @@ class DepartmentClassifier:
                     }
                 ],
                 temperature=0.3,
-                max_tokens=500
+                max_tokens=150  # Reduced to fit within credit limit
             )
             
             # Parse response
             result = self._parse_llm_response(response.choices[0].message.content)
+            
+            # Route low confidence documents to General department
+            if result['confidence'] < 0.6:
+                logger.info(f"⚠️ Low confidence ({result['confidence']}) - routing to General department")
+                result['department'] = 'General'
+                result['reasoning'] = f"Routed to General: Low confidence classification. Original: {result.get('original_department', result['department'])}"
             
             logger.info(f"✅ Classification: {result['department']} (confidence: {result['confidence']})")
             return result
@@ -146,12 +150,18 @@ Be precise and ensure the department name exactly matches one from the list."""
                     # Validate department
                     if dept in self.DEPARTMENTS:
                         result["department"] = dept
+                        result["original_department"] = dept  # Store original for low confidence routing
                     else:
                         # Try to find closest match
                         for valid_dept in self.DEPARTMENTS:
                             if valid_dept.lower() in dept.lower():
                                 result["department"] = valid_dept
+                                result["original_department"] = valid_dept
                                 break
+                        # If no match found, default to General
+                        if "original_department" not in result:
+                            result["department"] = "General"
+                            result["original_department"] = dept
                 
                 elif line.startswith("CONFIDENCE:"):
                     try:
