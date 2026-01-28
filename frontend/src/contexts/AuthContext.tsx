@@ -12,10 +12,11 @@ export const DEPARTMENTS: Department[] = [
   { id: 'Engineering', name: 'Engineering', color: '#3B82F6', icon: '⚙️', description: 'Technical maintenance and infrastructure' },
   { id: 'Finance', name: 'Finance', color: '#10B981', icon: '💰', description: 'Budget, payments, and financial management' },
   { id: 'Human Resources', name: 'Human Resources', color: '#8B5CF6', icon: '👥', description: 'Employee management and policies' },
-  { id: 'Information Technology', name: 'Information Technology', color: '#F59E0B', icon: '�', description: 'IT systems and technology' },
+  { id: 'Information Technology', name: 'Information Technology', color: '#F59E0B', icon: '💻', description: 'IT systems and technology' },
   { id: 'Safety & Security', name: 'Safety & Security', color: '#EF4444', icon: '🛡️', description: 'Safety protocols and security' },
   { id: 'Operations', name: 'Operations', color: '#06B6D4', icon: '🚇', description: 'Metro operations and scheduling' },
-  { id: 'Public Relations', name: 'Public Relations', color: '#EC4899', icon: '📢', description: 'Public communications and media' }
+  { id: 'Public Relations', name: 'Public Relations', color: '#EC4899', icon: '📢', description: 'Public communications and media' },
+  { id: 'General', name: 'General', color: '#F59E0B', icon: '📦', description: 'General documents and unclassified items' }
 ];
 
 interface User {

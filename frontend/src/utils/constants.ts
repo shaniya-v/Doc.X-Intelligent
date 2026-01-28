@@ -2,52 +2,76 @@ import { Department } from '../types';
 
 export const DEPARTMENTS: Department[] = [
   {
+    id: 'Engineering',
     name: 'Engineering',
     displayName: 'Engineering',
     malayalamName: 'എഞ്ചിനീയറിംഗ്',
-    color: 'bg-blue-600',
+    color: 'bg-blue-100',
     icon: '🔧',
     description: 'Track maintenance, signal systems, infrastructure, and technical operations'
   },
   {
+    id: 'Finance',
     name: 'Finance',
     displayName: 'Finance',
     malayalamName: 'ധനകാര്യം',
-    color: 'bg-green-600',
+    color: 'bg-green-100',
     icon: '💰',
     description: 'Budget management, procurement, vendor payments, and financial reporting'
   },
   {
+    id: 'HR',
     name: 'Human Resources',
     displayName: 'Human Resources',
     malayalamName: 'മാനവ വിഭവശേഷി',
-    color: 'bg-purple-600',
+    color: 'bg-purple-100',
     icon: '👥',
     description: 'Employee management, training, recruitment, and HR policies'
   },
   {
+    id: 'Operations',
     name: 'Operations',
     displayName: 'Operations',
     malayalamName: 'പ്രവർത്തനങ്ങൾ',
-    color: 'bg-orange-600',
+    color: 'bg-orange-100',
     icon: '🚇',
     description: 'Train operations, scheduling, passenger services, and station management'
   },
   {
+    id: 'Safety',
     name: 'Safety & Security',
     displayName: 'Safety & Security',
     malayalamName: 'സുരക്ഷ',
-    color: 'bg-red-600',
+    color: 'bg-red-100',
     icon: '🛡️',
     description: 'Safety incidents, security protocols, emergency response, and investigations'
   },
   {
+    id: 'Admin',
     name: 'Administration',
     displayName: 'Administration',
     malayalamName: 'ഭരണം',
-    color: 'bg-gray-600',
+    color: 'bg-gray-100',
     icon: '📋',
     description: 'General administration, documentation, facility management, and office procedures'
+  },
+  {
+    id: 'Security',
+    name: 'Security',
+    displayName: 'Security',
+    malayalamName: 'സുരക്ഷ',
+    color: 'bg-indigo-100',
+    icon: '🔒',
+    description: 'Security operations and monitoring'
+  },
+  {
+    id: 'General',
+    name: 'General',
+    displayName: 'General',
+    malayalamName: 'പൊതു',
+    color: 'bg-yellow-100',
+    icon: '📦',
+    description: 'General documents and unclassified items'
   }
 ];
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { documentApi } from '../utils/api';
 import { getDepartmentByName, PRIORITY_COLORS, formatDate, getFileTypeIcon } from '../utils/constants';
 import { Document } from '../types';
@@ -16,6 +17,8 @@ const DepartmentPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
   const [selectedSource, setSelectedSource] = useState<string>('all');
+  const [expandedDocs, setExpandedDocs] = useState<Set<string>>(new Set());
+  const [expandedDocs, setExpandedDocs] = useState<Set<string>>(new Set());
 
   const department = getDepartmentByName(deptName || '');
 
@@ -158,122 +161,6 @@ const DepartmentPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Multi-Department Tasks Section */}
-      {multiDeptTasks.length > 0 && (
-        <div className="bg-white rounded-lg shadow border">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center space-x-2">
-              <span className="text-2xl">🤝</span>
-              <h2 className="text-xl font-bold text-gray-900">Multi-Department Coordination Tasks</h2>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                {multiDeptTasks.length} tasks requiring coordination
-              </span>
-            </div>
-            <p className="mt-1 text-sm text-gray-600">
-              Tasks assigned to {department?.displayName} from documents that require multiple departments
-            </p>
-          </div>
-          
-          <div className="p-6 space-y-4">
-            {multiDeptTasks.map((task, index) => (
-              <div key={`${task.document.id}-${index}`} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <Link
-                      to={`/document/${task.document.id}`}
-                      className="text-lg font-medium text-gray-900 hover:text-blue-600"
-                    >
-                      {task.document.title}
-                    </Link>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${PRIORITY_COLORS[task.document.priority]}`}>
-                        {task.document.priority}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {formatDate(task.document.created_at)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Department-specific tasks */}
-                <div className="bg-white rounded p-4 mb-3 border border-blue-100">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-medium text-gray-900 flex items-center">
-                      <span className="text-lg mr-2">{department?.icon}</span>
-                      Tasks for {department?.displayName}
-                    </h4>
-                    <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded">
-                      {task.tasks.length} task{task.tasks.length !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    {task.tasks.map((taskItem, taskIndex) => (
-                      <div key={taskIndex} className="flex items-start space-x-3 p-2 bg-gray-50 rounded">
-                        <div className="flex items-center h-5">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                            onChange={(e) => {
-                              // TODO: Handle task completion
-                              console.log(`Task ${taskIndex} ${e.target.checked ? 'completed' : 'uncompleted'}`);
-                            }}
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-700">{taskItem}</p>
-                          <div className="flex items-center space-x-4 mt-1">
-                            <span className="text-xs text-gray-500">
-                              📅 Due: Within 24 hours
-                            </span>
-                            <span className="text-xs text-red-600">
-                              ⚠️ Urgent
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {/* Document Summary for this department */}
-                  {task.document.metadata?.ai_analysis?.summary && (
-                    <div className="mt-3 p-3 bg-blue-50 rounded border border-blue-200">
-                      <h5 className="text-xs font-medium text-blue-900 mb-1">Document Summary:</h5>
-                      <p className="text-xs text-blue-800">
-                        {task.document.metadata.ai_analysis.summary.substring(0, 200)}
-                        {task.document.metadata.ai_analysis.summary.length > 200 ? '...' : ''}
-                      </p>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Other departments involved */}
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-500">Also involves:</span>
-                  <div className="flex flex-wrap gap-1">
-                    {task.otherDepartments.map((dept, deptIndex) => (
-                      <span
-                        key={deptIndex}
-                        className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-100 text-gray-700"
-                      >
-                        {dept}
-                      </span>
-                    ))}
-                  </div>
-                  <Link
-                    to={`/document/${task.document.id}`}
-                    className="text-xs text-blue-600 hover:text-blue-800 ml-auto"
-                  >
-                    View full coordination details →
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Filters */}
       <div className="bg-white rounded-lg shadow border p-4">
         <div className="flex flex-wrap gap-4 items-center">
@@ -315,151 +202,161 @@ const DepartmentPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Documents List */}
-      <div className="space-y-4">
-        {filteredDocuments.length === 0 ? (
-          <div className="bg-white rounded-lg shadow border p-8 text-center">
-            <div className="text-4xl mb-4">📭</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No documents found</h3>
-            <p className="text-gray-600">
-              {documents.length === 0 
-                ? `No documents have been assigned to ${department.displayName} yet.`
-                : 'Try adjusting your filters to see more documents.'
-              }
-            </p>
-          </div>
-        ) : (
-          filteredDocuments.map((doc) => (
-            <div key={doc.id} className="bg-white rounded-lg shadow border hover:shadow-md transition-shadow">
-              <div className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-4 flex-1">
-                    <div className="text-3xl">
-                      📄
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <Link
-                          to={`/document/${doc.id}`}
-                          className="text-lg font-semibold text-gray-900 hover:text-blue-600 truncate"
-                        >
-                          {doc.title}
-                        </Link>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${PRIORITY_COLORS[doc.priority]}`}>
-                          {doc.priority}
-                        </span>
-                      </div>
-                      
-                      <div className="text-sm text-gray-600 mb-3">
-                        <p className="truncate">Document ID: {doc.id}</p>
-                      </div>
-                      
-                      {/* Key Points */}
-                      {doc.metadata?.ai_analysis?.key_topics && doc.metadata.ai_analysis.key_topics.length > 0 && (
-                        <div className="mb-3">
-                          <h4 className="text-sm font-medium text-gray-900 mb-1">Key Points:</h4>
-                          <div className="flex flex-wrap gap-1">
-                            {doc.metadata.ai_analysis.key_topics.slice(0, 3).map((topic: string, index: number) => (
-                              <span
-                                key={index}
-                                className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-blue-100 text-blue-800"
-                              >
-                                {topic}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Summary */}
-                      {doc.metadata?.ai_analysis?.summary && (
-                        <div className="mb-3">
-                          <h4 className="text-sm font-medium text-gray-900 mb-1">Summary:</h4>
-                          <p className="text-sm text-gray-600 line-clamp-2">
-                            {doc.metadata.ai_analysis.summary}
-                          </p>
-                        </div>
-                      )}
-                      
-                      {/* Recommended Actions */}
-                      {doc.metadata?.recommended_actions && doc.metadata.recommended_actions.length > 0 && (
-                        <div className="mb-3">
-                          <h4 className="text-sm font-medium text-gray-900 mb-2">Actions Required:</h4>
-                          <div className="space-y-2">
-                            {doc.metadata.recommended_actions.slice(0, 3).map((action: string, index: number) => (
-                              <div key={index} className="flex items-start space-x-2 p-2 bg-orange-50 rounded border border-orange-200">
-                                <div className="flex items-center h-5 mt-0.5">
-                                  <input
-                                    type="checkbox"
-                                    className="h-3 w-3 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
-                                    onChange={(e) => {
-                                      console.log(`Action ${index} ${e.target.checked ? 'completed' : 'uncompleted'}`);
-                                    }}
-                                  />
-                                </div>
-                                <div className="flex-1">
-                                  <p className="text-xs text-gray-700">{action}</p>
-                                  <span className="text-xs text-orange-600">📅 Due: 48 hours</span>
-                                </div>
+      {/* Documents List - Table View */}
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  Document
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  Priority
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  Source
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  Date
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredDocuments.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                    <div className="text-4xl mb-4">📭</div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No documents found</h3>
+                    <p className="text-gray-600">
+                      {documents.length === 0 
+                        ? `No documents have been assigned to ${department.displayName} yet.`
+                        : 'Try adjusting your filters to see more documents.'
+                      }
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                filteredDocuments.map((doc) => {
+                  const isExpanded = expandedDocs.has(doc.id);
+                  return (
+                    <React.Fragment key={doc.id}>
+                      <tr className="hover:bg-blue-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center">
+                            <button
+                              onClick={() => {
+                                const newExpanded = new Set(expandedDocs);
+                                if (isExpanded) {
+                                  newExpanded.delete(doc.id);
+                                } else {
+                                  newExpanded.add(doc.id);
+                                }
+                                setExpandedDocs(newExpanded);
+                              }}
+                              className="mr-2 text-gray-400 hover:text-gray-600 transition-colors"
+                              aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                            >
+                              {isExpanded ? (
+                                <ChevronUp className="h-5 w-5" />
+                              ) : (
+                                <ChevronDown className="h-5 w-5" />
+                              )}
+                            </button>
+                            <div className="text-2xl mr-3">
+                              📄
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-gray-900 hover:text-blue-600">
+                                {doc.title || doc.filename || 'Untitled'}
                               </div>
-                            ))}
+                              {doc.metadata?.sender && (
+                                <p className="text-xs text-gray-500">From: {doc.metadata.sender}</p>
+                              )}
+                            </div>
                           </div>
-                        </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                            doc.priority === 'urgent' ? 'bg-red-100 text-red-800' :
+                            doc.priority === 'high' ? 'bg-orange-100 text-orange-800' :
+                            doc.priority === 'normal' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {doc.priority || 'normal'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-600 capitalize">
+                            {doc.source || 'manual'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatDate(doc.created_at)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center space-x-2">
+                            <a
+                              href={`' + import.meta.env.VITE_API_URL + '/api/documents/${doc.id}/download`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-3 py-1.5 border border-blue-300 rounded-md text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                            >
+                              View File
+                            </a>
+                            <Link
+                              to={`/document/${doc.id}`}
+                              className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                            >
+                              Details
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr className="bg-blue-50">
+                          <td colSpan={5} className="px-6 py-4">
+                            <div className="pl-12">
+                              <h4 className="text-sm font-semibold text-gray-900 mb-2">📝 Document Summary</h4>
+                              <p className="text-sm text-gray-700 leading-relaxed">
+                                {doc.summary || doc.metadata?.ai_analysis?.summary || 'No summary available for this document.'}
+                              </p>
+                              {doc.metadata?.ai_analysis?.key_topics && doc.metadata.ai_analysis.key_topics.length > 0 && (
+                                <div className="mt-3">
+                                  <h5 className="text-xs font-semibold text-gray-700 mb-2">Key Topics:</h5>
+                                  <div className="flex flex-wrap gap-2">
+                                    {doc.metadata.ai_analysis.key_topics.map((topic: string, idx: number) => (
+                                      <span key={idx} className="px-2 py-1 bg-blue-200 text-blue-800 rounded text-xs">
+                                        {topic}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {doc.metadata?.recommended_actions && doc.metadata.recommended_actions.length > 0 && (
+                                <div className="mt-3">
+                                  <h5 className="text-xs font-semibold text-gray-700 mb-2">⚠️ Actions Required:</h5>
+                                  <ul className="text-sm text-gray-700 list-disc list-inside space-y-1">
+                                    {doc.metadata.recommended_actions.map((action: string, index: number) => (
+                                      <li key={index}>{action}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
                       )}
-                      
-                      {/* Sender Info */}
-                      <div className="flex flex-wrap gap-4 text-sm text-gray-500">
-                        {doc.metadata?.sender && (
-                          <div className="flex items-center space-x-1">
-                            <span>📧</span>
-                            <span>From: {doc.metadata.sender}</span>
-                          </div>
-                        )}
-                        <div className="flex items-center space-x-1">
-                          <span>📊</span>
-                          <span>Source: {doc.source}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <span>🕒</span>
-                          <span>{formatDate(doc.created_at)}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <span>📅</span>
-                          <span>{formatDate(doc.created_at)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-col space-y-2 ml-4">
-                    <Link
-                      to={`/document/${doc.id}`}
-                      className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                    >
-                      View Details
-                    </Link>
-                  </div>
-                </div>
-                
-                {/* Action Required Badge */}
-                {doc.metadata?.recommended_actions && doc.metadata.recommended_actions.length > 0 && (
-                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-yellow-600">⚠️</span>
-                      <span className="text-sm font-medium text-yellow-800">Action Required</span>
-                    </div>
-                    <ul className="mt-2 text-sm text-yellow-700 list-disc list-inside">
-                      {doc.metadata.recommended_actions.slice(0, 3).map((action: string, index: number) => (
-                        <li key={index}>{action}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))
-        )}
+                    </React.Fragment>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

@@ -37,7 +37,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isOpen, onClose }) => {
       
       for (const dept of DEPARTMENTS) {
         try {
-          const response = await fetch(`http://127.0.0.1:5000/api/department-summary/${dept.id}`);
+          const response = await fetch(`' + import.meta.env.VITE_API_URL + '/api/departments/${dept.id}/summary`);
           
           if (response.ok) {
             const data = await response.json();

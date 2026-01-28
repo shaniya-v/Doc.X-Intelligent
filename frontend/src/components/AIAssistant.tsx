@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, DEPARTMENTS } from '../contexts/AuthContext';
+import { Bot, Upload, Send, X, FileText, CheckCircle, Download, Save, Eye } from 'lucide-react';
 
 interface AIAssistantProps {
   isOpen: boolean;
@@ -9,9 +10,44 @@ interface AIAssistantProps {
 
 interface Message {
   id: string;
-  type: 'user' | 'assistant';
+  type: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
+  options?: TaskOption[];
+  documents?: DocumentResult[];
+  documentAnalysis?: DocumentAnalysis;
+}
+
+interface DocumentResult {
+  document_id: string;
+  filename: string;
+  department: string;
+  summary: string;
+  download_url: string;
+  relevance_score?: number;
+}
+
+interface DocumentAnalysis {
+  document_id: string;
+  filename: string;
+  department: string;
+  summary: string;
+  download_url: string;
+}
+
+interface TaskOption {
+  id: string;
+  label: string;
+  value: string;
+  description: string;
+}
+
+interface UploadContext {
+  file: File | null;
+  taskType: 'finished' | 'assign' | 'review' | null;
+  targetDepartment: string | null;
+  description: string;
+  uploadedDocumentId?: string;
 }
 
 const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, onClose, onTaskUpdate }) => {
@@ -20,14 +56,18 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, onClose, onTaskUpdate
     {
       id: '1',
       type: 'assistant',
-      content: `Hello! I'm your AI assistant for the ${user.department?.name} department. I can help you with:\n\n• Upload and process documents\n• Search through all documents\n• Verify document content\n• Add documents to database\n• Manage department tasks\n\nWhat would you like to do today?`,
+      content: `Hello! I'm your AI assistant for the ${user.department?.name || 'your'} department. I can help you with:\n\n📤 **Upload Documents** - Upload and classify documents\n📖 **Review Documents** - Analyze and explain document contents\n🔍 **Search Documents** - Find relevant documents (e.g., "search for financial reports")\n📥 **Download & Save** - Download documents or save them to your department\n🏢 **Route Documents** - Assign tasks to other departments\n\nWhat would you like to do today?`,
       timestamp: new Date()
     }
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadMode, setUploadMode] = useState(false);
+  const [uploadContext, setUploadContext] = useState<UploadContext>({
+    file: null,
+    taskType: null,
+    targetDepartment: null,
+    description: ''
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -39,435 +79,609 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, onClose, onTaskUpdate
     scrollToBottom();
   }, [messages]);
 
+  const addMessage = (type: 'user' | 'assistant' | 'system', content: string, options?: TaskOption[], documents?: DocumentResult[], documentAnalysis?: DocumentAnalysis) => {
+    const newMessage: Message = {
+      id: Date.now().toString(),
+      type,
+      content,
+      timestamp: new Date(),
+      options,
+      documents,
+      documentAnalysis
+    };
+    setMessages(prev => [...prev, newMessage]);
+  };
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setSelectedFile(file);
-      setUploadMode(true);
-      setInputValue(`Tell me what you want to do with "${file.name}"`);
+      setUploadContext(prev => ({ ...prev, file }));
+      
+      addMessage('user', `📎 Selected file: ${file.name}`);
+      
+      setTimeout(() => {
+        addMessage(
+          'assistant',
+          `Great! I've received "${file.name}". What would you like to do with this document?`,
+          [
+            {
+              id: 'review',
+              label: '📖 Review Document',
+              value: 'review',
+              description: 'Let me analyze and explain what\'s in this document'
+            },
+            {
+              id: 'finished',
+              label: '✅ Completed Work',
+              value: 'finished',
+              description: `A finished task or report from ${user.department?.name || 'your department'}`
+            },
+            {
+              id: 'assign',
+              label: '📤 Assign to Department',
+              value: 'assign',
+              description: 'Work that needs to be done by another department'
+            }
+          ]
+        );
+      }, 500);
     }
   };
 
-  const handleChatUpload = async (file: File, prompt: string): Promise<string> => {
+  const handleTaskTypeSelection = async (taskType: 'finished' | 'assign' | 'review') => {
+    setUploadContext(prev => ({ ...prev, taskType }));
+    
+    if (taskType === 'review') {
+      addMessage('user', '📖 Review and explain this document');
+      await handleDocumentReview();
+    } else if (taskType === 'finished') {
+      addMessage('user', '✅ This is completed work from my department');
+      addMessage('assistant', 'Perfect! Would you like to add any notes or description about this completed work? (Optional - just type your notes or say "upload now")');
+    } else {
+      addMessage('user', '📤 This needs to be assigned to another department');
+      setTimeout(() => {
+        const departmentOptions: TaskOption[] = DEPARTMENTS
+          .filter(dept => dept.id !== user.department?.id)
+          .map(dept => ({
+            id: dept.id,
+            label: `${dept.icon} ${dept.name}`,
+            value: dept.id,
+            description: dept.description || ''
+          }));
+        
+        addMessage(
+          'assistant',
+          'Which department should handle this work?',
+          departmentOptions
+        );
+      }, 500);
+    }
+  };
+
+  const handleDocumentReview = async () => {
+    if (!uploadContext.file) {
+      addMessage('assistant', '❌ No file selected.');
+      return;
+    }
+
+    setIsProcessing(true);
+    addMessage('system', '🔄 Uploading and analyzing document...');
+
+    try {
+      // First upload the document
+      const formData = new FormData();
+      formData.append('file', uploadContext.file);
+      formData.append('user_id', user.username || 'anonymous');
+      formData.append('source', 'ai_assistant_review');
+
+      const uploadResponse = await fetch(import.meta.env.VITE_API_URL + '/api/documents/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const uploadResult = await uploadResponse.json();
+      const documentId = uploadResult.document_id;
+
+      // Now analyze the document
+      const chatResponse = await fetch(import.meta.env.VITE_API_URL + '/api/ai/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: 'Analyze this document',
+          document_id: documentId
+        }),
+      });
+
+      if (!chatResponse.ok) {
+        throw new Error('Analysis failed');
+      }
+
+      const chatResult = await chatResponse.json();
+
+      addMessage('assistant', chatResult.response, undefined, undefined, chatResult.document_analysis);
+
+      // Reset context
+      setUploadContext({
+        file: null,
+        taskType: null,
+        targetDepartment: null,
+        description: ''
+      });
+
+      onTaskUpdate();
+
+    } catch (error: any) {
+      console.error('Review error:', error);
+      addMessage('assistant', `❌ **Review Failed**\n\n${error.message || 'An error occurred while analyzing the document.'}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDepartmentSelection = (deptId: string) => {
+    const dept = DEPARTMENTS.find(d => d.id === deptId);
+    setUploadContext(prev => ({ ...prev, targetDepartment: deptId }));
+    addMessage('user', `→ Assigning to ${dept?.name || deptId}`);
+    addMessage('assistant', 'Great! Would you like to add any instructions or description for this department? (Optional - just type your notes or say "upload now")');
+  };
+
+  const handleUploadDocument = async () => {
+    if (!uploadContext.file) {
+      addMessage('assistant', '❌ No file selected. Please upload a file first.');
+      return;
+    }
+
+    if (!uploadContext.taskType) {
+      addMessage('assistant', '❌ Please specify if this is completed work or an assignment.');
+      return;
+    }
+
+    if (uploadContext.taskType === 'assign' && !uploadContext.targetDepartment) {
+      addMessage('assistant', '❌ Please select a target department.');
+      return;
+    }
+
+    setIsProcessing(true);
+    addMessage('system', '🔄 Uploading and processing document...');
+
     try {
       const formData = new FormData();
-      formData.append('file', file);
-      formData.append('prompt', prompt);
-      formData.append('department', user.department?.id || 'General');
+      formData.append('file', uploadContext.file);
       formData.append('user_id', user.username || 'anonymous');
+      formData.append('source', 'ai_assistant');
+      formData.append('task_type', uploadContext.taskType);
+      
+      if (uploadContext.description) {
+        formData.append('description', uploadContext.description);
+      }
+      
+      if (uploadContext.taskType === 'assign' && uploadContext.targetDepartment) {
+        formData.append('target_department', uploadContext.targetDepartment);
+      } else if (uploadContext.taskType === 'finished' && user.department) {
+        formData.append('source_department', user.department.id);
+      }
 
-      const response = await fetch('http://127.0.0.1:5000/api/chat/upload', {
+      const response = await fetch(import.meta.env.VITE_API_URL + '/api/documents/upload', {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Upload failed');
+        throw new Error(errorData.detail || errorData.error || 'Upload failed');
       }
 
-      const data = await response.json();
-      onTaskUpdate(); // Refresh the dashboard if document was uploaded
-      return data.answer;
-    } catch (error) {
-      console.error('Chat upload error:', error);
-      throw error;
-    }
-  };
+      const result = await response.json();
+      onTaskUpdate();
 
-  const uploadDocument = async (file: File): Promise<string> => {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('department', user.department?.id || '');
-      formData.append('source', 'ai_upload');
+      const successMsg = uploadContext.taskType === 'finished'
+        ? `✅ **Document Uploaded Successfully!**\n\n📄 File: ${uploadContext.file.name}\n🏢 Department: ${result.department}\n📊 Confidence: ${(result.confidence * 100).toFixed(1)}%\n📝 Summary: ${result.summary}\n\nThe document has been marked as completed work from ${user.department?.name}.`
+        : `✅ **Document Assigned Successfully!**\n\n📄 File: ${uploadContext.file.name}\n📤 Assigned to: ${uploadContext.targetDepartment}\n📊 AI Analysis: ${result.department}\n📝 Summary: ${result.summary}\n\nThe document has been routed to ${DEPARTMENTS.find(d => d.id === uploadContext.targetDepartment)?.name}.`;
 
-      const response = await fetch('http://127.0.0.1:5000/api/upload', {
-        method: 'POST',
-        body: formData
+      addMessage('assistant', successMsg);
+
+      setUploadContext({
+        file: null,
+        taskType: null,
+        targetDepartment: null,
+        description: ''
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        onTaskUpdate(); // Refresh the dashboard
-        
-        if (result.routing_method === 'OpenRouter RAG' && result.original_department !== result.department) {
-          return `Document "${file.name}" uploaded successfully! 
-
-📋 **Smart Routing Applied:**
-• Originally selected: ${result.original_department}
-• AI Analysis routed to: ${result.department}
-• Method: ${result.routing_method}
-
-The document has been automatically classified and assigned to the most appropriate department based on its content analysis.
-
-Document ID: ${result.document_id}`;
-        } else {
-          return `Document "${file.name}" uploaded successfully to the ${result.department} department! Document ID: ${result.document_id}`;
-        }
-      } else {
-        const error = await response.json();
-        return `Failed to upload document: ${error.error || 'Unknown error'}`;
-      }
-    } catch (error) {
-      return `Error uploading document: ${error}`;
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      addMessage('assistant', `❌ **Upload Failed**\n\n${error.message || 'An error occurred while uploading the document.'}\n\nPlease try again or contact support if the issue persists.`);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
-  const searchDocuments = async (query: string): Promise<string> => {
-    try {
-      const response = await fetch(`http://127.0.0.1:5000/api/search?q=${encodeURIComponent(query)}`);
-      
-      if (response.ok) {
-        const results = await response.json();
-        
-        if (results.length === 0) {
-          return `No documents found matching "${query}".`;
-        }
+  const handleSendMessage = async () => {
+    if (!inputValue.trim()) return;
 
-        let resultText = `Found ${results.length} documents matching "${query}":\n\n`;
-        results.slice(0, 5).forEach((doc: any, index: number) => {
-          resultText += `${index + 1}. **${doc.title || 'Untitled'}**\n`;
-          resultText += `   Department: ${doc.department}\n`;
-          resultText += `   Priority: ${doc.priority}\n`;
-          resultText += `   Created: ${new Date(doc.created_at).toLocaleDateString()}\n`;
-          if (doc.excerpt) {
-            resultText += `   Preview: ${doc.excerpt}...\n`;
-          }
-          resultText += `\n`;
-        });
-
-        if (results.length > 5) {
-          resultText += `... and ${results.length - 5} more results.`;
-        }
-
-        return resultText;
-      } else {
-        return `Search failed. Please try again.`;
-      }
-    } catch (error) {
-      return `Error searching documents: ${error}`;
-    }
-  };
-
-  const verifyDocumentContent = async (query: string): Promise<string> => {
-    try {
-      const response = await fetch('http://127.0.0.1:5000/api/verify-content', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          query,
-          department: user.department?.id 
-        })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        
-        if (result.found) {
-          let verificationText = `✅ Found matching content in ${result.documents.length} document(s):\n\n`;
-          result.documents.forEach((doc: any, index: number) => {
-            verificationText += `${index + 1}. **${doc.title}** (${doc.department})\n`;
-            verificationText += `   Match: "${doc.match}"\n`;
-            verificationText += `   Confidence: ${doc.confidence}%\n\n`;
-          });
-          return verificationText;
-        } else {
-          return `❌ No documents contain the specified content: "${query}"`;
-        }
-      } else {
-        return `Verification failed. Please try again.`;
-      }
-    } catch (error) {
-      return `Error verifying content: ${error}`;
-    }
-  };
-
-  const getOpenRouterResponse = async (message: string): Promise<string> => {
-    try {
-      const response = await fetch('http://127.0.0.1:5000/api/chat/assistant', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          message,
-          department: user.department?.id,
-          context: 'ai_assistant'
-        })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        return result.response || 'I apologize, but I could not process your request at the moment.';
-      } else {
-        return 'I\'m experiencing some technical difficulties. Please try again.';
-      }
-    } catch (error) {
-      console.error('Error getting AI response:', error);
-      return 'I\'m currently unable to process your request. Please try again later.';
-    }
-  };
-
-  const processUserMessage = async (message: string): Promise<string> => {
-    const lowerMessage = message.toLowerCase();
-
-    // Handle file upload
-    if (selectedFile) {
-      const result = await uploadDocument(selectedFile);
-      setSelectedFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-      return result;
-    }
-
-    // Handle search queries
-    if (lowerMessage.includes('search') || lowerMessage.includes('find')) {
-      const searchTerm = message.replace(/search|find|for|documents?|about/gi, '').trim();
-      if (searchTerm) {
-        return await searchDocuments(searchTerm);
-      }
-      return 'Please specify what you want to search for. Example: "Search maintenance reports"';
-    }
-
-    // Handle verification queries
-    if (lowerMessage.includes('verify') || lowerMessage.includes('check') || lowerMessage.includes('contain')) {
-      const verifyTerm = message.replace(/verify|check|does|any|document|contain|mentioned|have/gi, '').trim();
-      if (verifyTerm) {
-        return await verifyDocumentContent(verifyTerm);
-      }
-      return 'Please specify what content you want to verify. Example: "Verify if any document mentions budget approval"';
-    }
-
-    // Handle upload prompts
-    if (lowerMessage.includes('upload') || lowerMessage.includes('add document')) {
-      return 'Please click the 📎 button to select a file to upload, or drag and drop a file here.';
-    }
-
-    // Handle general help and queries with OpenRouter
-    if (lowerMessage.includes('help')) {
-      return `I can help you with several tasks:\n\n📤 **Upload Documents**: Click the 📎 button or say "upload document"\n🔍 **Search**: Type "search [keyword]" to find documents\n✅ **Verify Content**: Ask "verify [content]" to check if documents contain specific information\n📋 **Task Management**: I can help you manage your department tasks\n\nWhat would you like to do?`;
-    }
-
-    // For all other queries, use OpenRouter AI for intelligent responses
-    return await getOpenRouterResponse(message);
-  };
-
-  const sendMessage = async () => {
-    if (!inputValue.trim() && !selectedFile) return;
-
-    // Determine the message content to display
-    let displayContent = inputValue;
-    if (selectedFile && uploadMode) {
-      displayContent = `📎 ${selectedFile.name}\n💬 ${inputValue}`;
-    } else if (selectedFile) {
-      displayContent = `📎 Upload: ${selectedFile.name}`;
-    }
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      type: 'user',
-      content: displayContent,
-      timestamp: new Date()
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setIsProcessing(true);
-
-    try {
-      let response: string;
-
-      // Handle file upload with prompt
-      if (selectedFile && uploadMode) {
-        response = await handleChatUpload(selectedFile, inputValue);
-      } 
-      // Handle regular file upload (legacy)
-      else if (selectedFile) {
-        response = await uploadDocument(selectedFile);
-      }
-      // Handle text-only messages
-      else {
-        response = await processUserMessage(inputValue);
-      }
-      
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'assistant',
-        content: response,
-        timestamp: new Date()
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
-    } catch (error) {
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'assistant',
-        content: `Sorry, I encountered an error: ${error}`,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    }
-
-    // Reset form
+    const userInput = inputValue.trim();
+    addMessage('user', userInput);
     setInputValue('');
-    setSelectedFile(null);
-    setUploadMode(false);
-    setIsProcessing(false);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+
+    // Check if user is providing description
+    if (uploadContext.file && uploadContext.taskType && uploadContext.taskType !== 'review') {
+      if (userInput.toLowerCase() === 'skip' || userInput.toLowerCase() === 'upload now') {
+        handleUploadDocument();
+      } else {
+        setUploadContext(prev => ({ ...prev, description: userInput }));
+        addMessage('assistant', `Got it! I'll include that in the upload. Ready to upload now? (Say "upload now" or click the upload button)`);
+      }
+      return;
+    }
+
+    // Check if this is a search query
+    const lowerInput = userInput.toLowerCase();
+    if (lowerInput.includes('search') || lowerInput.includes('find') || 
+        lowerInput.includes('look for') || lowerInput.includes('show me') ||
+        lowerInput.includes('document about') || lowerInput.includes('documents about')) {
+      await handleSearchDocuments(userInput);
+      return;
+    }
+
+    // General conversation
+    if (lowerInput.includes('help')) {
+      addMessage('assistant', `I can help you with:\n\n📤 **Upload Documents**: Click the 📎 button to upload a document\n📖 **Review Documents**: Upload and ask me to review/analyze\n🔍 **Search**: Ask me to find documents (e.g., "search for financial reports")\n📋 **Tasks**: Manage department tasks\n\nWhat would you like to do?`);
+    } else {
+      // Send to AI chat endpoint
+      await handleAIChat(userInput);
+    }
+  };
+
+  const handleAIChat = async (message: string) => {
+    setIsProcessing(true);
+    try {
+      const response = await fetch(import.meta.env.VITE_API_URL + '/api/ai/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Chat request failed');
+      }
+
+      const result = await response.json();
+      addMessage('assistant', result.response, undefined, result.documents, result.document_analysis);
+
+    } catch (error: any) {
+      console.error('Chat error:', error);
+      addMessage('assistant', `I understand you said: "${message}"\n\nI can help you with:\n\n🔍 **Search**: Ask me to find documents\n📖 **Review**: Upload a document for analysis\n📤 **Upload**: Use the upload button\n\nWhat would you like to do?`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleSearchDocuments = async (query: string) => {
+    setIsProcessing(true);
+    addMessage('system', '🔍 Searching for relevant documents...');
+
+    try {
+      const response = await fetch(import.meta.env.VITE_API_URL + '/api/ai/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: query }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Search failed');
+      }
+
+      const result = await response.json();
+      addMessage('assistant', result.response, undefined, result.documents);
+
+    } catch (error: any) {
+      console.error('Search error:', error);
+      addMessage('assistant', `❌ Search failed. Please try again.`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleSaveDocument = async (documentId: string) => {
+    try {
+      if (!user.department?.id) {
+        addMessage('system', '❌ Cannot save: No department selected');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('department_id', user.department.id);
+
+      const response = await fetch(`' + import.meta.env.VITE_API_URL + '/api/documents/${documentId}/save-to-department`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Save failed');
+      }
+
+      addMessage('system', `✅ Document saved to ${user.department.name} department!`);
+      onTaskUpdate();
+
+    } catch (error: any) {
+      console.error('Save error:', error);
+      addMessage('system', '❌ Failed to save document');
+    }
+  };
+
+  const handleOptionClick = (option: TaskOption) => {
+    if (option.id === 'finished' || option.id === 'assign' || option.id === 'review') {
+      handleTaskTypeSelection(option.id as 'finished' | 'assign' | 'review');
+    } else {
+      handleDepartmentSelection(option.value);
     }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      handleSendMessage();
     }
   };
 
-  if (!isOpen) return null;
-
+  // Render modal
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl h-[600px] flex flex-col">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      onClick={(e) => {
+        e.stopPropagation();
+        console.log('Backdrop clicked');
+        onClose();
+      }}
+    >
+      <div 
+        className="bg-white rounded-xl shadow-2xl w-full max-w-3xl h-[700px] flex flex-col"
+        onClick={(e) => {
+          e.stopPropagation();
+          console.log('Modal content clicked - preventing close');
+        }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between p-5 border-b border-gray-200 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-t-xl">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-              </svg>
+            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
+              <Bot className="w-7 h-7 text-purple-600" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">AI Assistant</h3>
-              <p className="text-sm text-gray-500">{user.department?.name} Department</p>
+              <h3 className="text-lg font-bold">AI Assistant</h3>
+              <p className="text-sm text-purple-100">{user.department?.name || 'Your'} Department</p>
             </div>
           </div>
           <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 p-1"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('Close button clicked');
+              onClose();
+            }}
+            className="text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/20 rounded-lg cursor-pointer"
+            type="button"
+            aria-label="Close AI Assistant"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="w-6 h-6" />
           </button>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-gray-50">
           {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                  message.type === 'user'
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-100 text-gray-900'
-                }`}
-              >
-                <p className="whitespace-pre-wrap">{message.content}</p>
-                <p className="text-xs mt-1 opacity-70">
-                  {message.timestamp.toLocaleTimeString()}
-                </p>
-              </div>
-            </div>
-          ))}
-          
-          {isProcessing && (
-            <div className="flex justify-start">
-              <div className="bg-gray-100 text-gray-900 px-4 py-2 rounded-lg">
-                <div className="flex items-center space-x-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></div>
-                  <span>Processing...</span>
+            <div key={message.id} className="space-y-3">
+              <div className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className={`max-w-[75%] px-4 py-3 rounded-lg shadow-sm ${
+                    message.type === 'user'
+                      ? 'bg-purple-600 text-white'
+                      : message.type === 'system'
+                      ? 'bg-blue-100 text-blue-900 border border-blue-300'
+                      : 'bg-white text-gray-900 border border-gray-200'
+                  }`}
+                >
+                  <div className="whitespace-pre-wrap text-sm">{message.content}</div>
+                  <div className={`text-xs mt-1 ${message.type === 'user' ? 'text-purple-200' : 'text-gray-500'}`}>
+                    {message.timestamp.toLocaleTimeString()}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-          
-          <div ref={messagesEndRef} />
-        </div>
 
-        {/* Input */}
-        <div className="border-t border-gray-200 p-4">
-          <div className="flex items-center space-x-2">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileSelect}
-              className="hidden"
-              accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.xlsx,.xls"
-            />
-            
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="p-2 text-gray-500 hover:text-gray-700 border border-gray-300 rounded-md"
-              title="Upload file"
-            >
-              📎
-            </button>
-            
-            <div className="flex-1">
-              <input
-                type="text"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder={
-                  uploadMode && selectedFile 
-                    ? `Tell me what you want to do with "${selectedFile.name}"...` 
-                    : selectedFile 
-                    ? `Selected: ${selectedFile.name}` 
-                    : "Ask me anything..."
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                disabled={isProcessing}
-              />
-            </div>
-            
-            <button
-              onClick={sendMessage}
-              disabled={isProcessing || (!inputValue.trim() && !selectedFile)}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {uploadMode && selectedFile ? 'Upload & Process' : 'Send'}
-            </button>
-          </div>
-          
-          {selectedFile && (
-            <div className="mt-2 space-y-2">
-              <div className="p-2 bg-blue-50 border border-blue-200 rounded-md flex items-center justify-between">
-                <span className="text-sm text-blue-800">
-                  📄 {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
-                </span>
-                <button
-                  onClick={() => {
-                    setSelectedFile(null);
-                    setUploadMode(false);
-                    setInputValue('');
-                    if (fileInputRef.current) fileInputRef.current.value = '';
-                  }}
-                  className="text-blue-600 hover:text-blue-800 text-sm"
-                >
-                  Remove
-                </button>
-              </div>
-              
-              {uploadMode && (
-                <div className="p-2 bg-green-50 border border-green-200 rounded-md">
-                  <div className="text-xs text-green-800 font-medium mb-1">💡 Upload Instructions:</div>
-                  <div className="text-xs text-green-700">
-                    Tell me what you want to do with this document:
-                    <br />• "Upload this globally" - Share with all departments
-                    <br />• "Upload this privately" - Only for me
-                    <br />• "Analyze this document" - Get analysis without uploading
-                    <br />• "Summarize this file" - Get summary
-                    <br />• Ask specific questions about the content
+              {/* Options */}
+              {message.options && message.options.length > 0 && (
+                <div className="flex justify-start">
+                  <div className="max-w-[75%] space-y-2">
+                    {message.options.map((option) => (
+                      <button
+                        key={option.id}
+                        onClick={() => handleOptionClick(option)}
+                        className="w-full text-left p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-all shadow-sm"
+                      >
+                        <div className="font-semibold text-gray-900">{option.label}</div>
+                        <div className="text-sm text-gray-600 mt-1">{option.description}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Document Results */}
+              {message.documents && message.documents.length > 0 && (
+                <div className="flex justify-start">
+                  <div className="max-w-[85%] space-y-3">
+                    {message.documents.map((doc, idx) => (
+                      <div
+                        key={doc.document_id}
+                        className="bg-white border-2 border-gray-200 rounded-lg p-4 hover:border-purple-400 transition-all shadow-sm"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              <FileText className="h-5 w-5 text-purple-600" />
+                              <h4 className="font-semibold text-gray-900">{doc.filename}</h4>
+                            </div>
+                            <p className="text-sm text-gray-600 mt-1">
+                              📊 {doc.department}
+                              {doc.relevance_score && (
+                                <span className="ml-2 text-purple-600">
+                                  • Relevance: {(doc.relevance_score * 100).toFixed(0)}%
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-sm text-gray-700 mt-2 line-clamp-2">{doc.summary}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 mt-3">
+                          <button
+                            onClick={() => window.open(doc.download_url, '_blank')}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
+                          >
+                            <Download className="h-4 w-4" />
+                            Download
+                          </button>
+                          <button
+                            onClick={() => window.open(doc.download_url, '_blank')}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors"
+                          >
+                            <Eye className="h-4 w-4" />
+                            View
+                          </button>
+                          <button
+                            onClick={() => handleSaveDocument(doc.document_id)}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 transition-colors"
+                          >
+                            <Save className="h-4 w-4" />
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Document Analysis */}
+              {message.documentAnalysis && (
+                <div className="flex justify-start">
+                  <div className="max-w-[85%] bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-300 rounded-lg p-4 shadow-md">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2">
+                          <FileText className="h-5 w-5 text-purple-600" />
+                          <h4 className="font-semibold text-gray-900">{message.documentAnalysis.filename}</h4>
+                        </div>
+                        <p className="text-sm text-gray-600 mt-1">📊 {message.documentAnalysis.department}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => window.open(message.documentAnalysis!.download_url, '_blank')}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
+                      >
+                        <Download className="h-4 w-4" />
+                        Download
+                      </button>
+                      <button
+                        onClick={() => window.open(message.documentAnalysis!.download_url, '_blank')}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors"
+                      >
+                        <Eye className="h-4 w-4" />
+                        View
+                      </button>
+                      <button
+                        onClick={() => handleSaveDocument(message.documentAnalysis!.document_id)}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 transition-colors"
+                      >
+                        <Save className="h-4 w-4" />
+                        Save
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
             </div>
-          )}
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Upload button for completing document upload */}
+        {uploadContext.file && uploadContext.taskType && (
+          <div className="px-5 py-3 bg-green-50 border-t border-green-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <FileText className="h-5 w-5 text-green-600" />
+                <div className="text-sm">
+                  <p className="font-medium text-green-900">Ready to upload: {uploadContext.file.name}</p>
+                  <p className="text-green-700">
+                    {uploadContext.taskType === 'finished' ? 'Completed work' : `Assign to ${DEPARTMENTS.find(d => d.id === uploadContext.targetDepartment)?.name}`}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleUploadDocument}
+                disabled={isProcessing}
+                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors"
+              >
+                {isProcessing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Uploading...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4" />
+                    <span>Upload Now</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Input */}
+        <div className="p-4 border-t border-gray-200 bg-white rounded-b-xl">
+          <div className="flex items-end space-x-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              onChange={handleFileSelect}
+              className="hidden"
+              accept=".pdf,.doc,.docx,.txt,.csv,.xlsx,.xls"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="p-3 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+              title="Upload document"
+            >
+              <Upload className="h-5 w-5" />
+            </button>
+            <textarea
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Type your message..."
+              rows={2}
+              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none"
+            />
+            <button
+              onClick={handleSendMessage}
+              disabled={!inputValue.trim() || isProcessing}
+              className="p-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 transition-colors"
+            >
+              <Send className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

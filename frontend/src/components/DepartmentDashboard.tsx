@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { useAuth, DEPARTMENTS } from '../contexts/AuthContext';
 import AIAssistant from './AIAssistant';
-import HamburgerMenu from './HamburgerMenu';
 import DocumentSearch from './DocumentSearch';
 import PrivateDocuments from './PrivateDocuments';
 
@@ -42,154 +43,54 @@ interface Document {
 
 const DepartmentDashboard: React.FC = () => {
   const { user, logout } = useAuth();
+  const { departmentId } = useParams<{ departmentId: string }>();
+  const currentDepartment = DEPARTMENTS.find(d => d.id === departmentId) || user.department;
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [menuOpen, setMenuOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'tasks' | 'private' | 'search'>('tasks');
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedDocs, setExpandedDocs] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    fetchDepartmentTasks();
-  }, [user.department]);
+    if (currentDepartment) {
+      fetchDepartmentTasks();
+    }
+  }, [currentDepartment]);
 
   const fetchDepartmentTasks = async () => {
+    if (!currentDepartment) return;
     try {
       setLoading(true);
-      const departmentParam = encodeURIComponent(user.department?.id || '');
-      const response = await fetch(`http://127.0.0.1:5000/api/documents?department=${departmentParam}`);
+      const departmentParam = encodeURIComponent(currentDepartment.id);
+      const response = await fetch(`' + import.meta.env.VITE_API_URL + '/api/departments/${departmentParam}/documents`);
       
       if (response.ok) {
         const data = await response.json();
         const documents = data.documents || []; // Extract documents array from response
         
-        console.log('Fetched documents for', user.department?.id, ':', documents.length);
+        console.log('Fetched documents for', currentDepartment.id, ':', documents.length);
         console.log('Sample document:', documents[0]);
         
         // Convert documents to tasks format
         const departmentTasks: Task[] = documents
           .map((doc: Document) => {
-            // Extract meaningful work summary from content
-            const content = doc.content || '';
-            let workSummary = '';
-            
-            // Enhanced extraction patterns for different content types
-            const extractionPatterns = [
-              { pattern: /MAINTENANCE TASKS?:?\s*\n([\s\S]*?)(?=\n[A-Z][A-Z\s]*:|$)/i, name: 'maintenance' },
-              { pattern: /TASKS?:?\s*\n([\s\S]*?)(?=\n[A-Z][A-Z\s]*:|$)/i, name: 'tasks' },
-              { pattern: /ACTION ITEMS?:?\s*\n([\s\S]*?)(?=\n[A-Z][A-Z\s]*:|$)/i, name: 'actions' },
-              { pattern: /RECOMMENDATIONS?:?\s*\n([\s\S]*?)(?=\n[A-Z][A-Z\s]*:|$)/i, name: 'recommendations' },
-              { pattern: /ACHIEVEMENTS?:?\s*\n([\s\S]*?)(?=\n[A-Z][A-Z\s]*:|$)/i, name: 'achievements' },
-              { pattern: /PERFORMANCE SUMMARY:?\s*\n([\s\S]*?)(?=\n[A-Z][A-Z\s]*:|$)/i, name: 'performance' },
-              { pattern: /REVENUE SUMMARY:?\s*\n([\s\S]*?)(?=\n[A-Z][A-Z\s]*:|$)/i, name: 'revenue' },
-              { pattern: /INSPECTION SUMMARY:?\s*\n([\s\S]*?)(?=\n[A-Z][A-Z\s]*:|$)/i, name: 'inspection' },
-              { pattern: /KEY FINDINGS?:?\s*\n([\s\S]*?)(?=\n[A-Z][A-Z\s]*:|$)/i, name: 'findings' },
-              { pattern: /SUMMARY:?\s*\n([\s\S]*?)(?=\n[A-Z][A-Z\s]*:|$)/i, name: 'summary' }
-            ];
-
-            // Try each pattern to extract meaningful content
-            for (const { pattern, name } of extractionPatterns) {
-              const match = content.match(pattern);
-              if (match && match[1]) {
-                let extracted = match[1].trim();
-                // Clean up and format the content
-                const lines = extracted
-                  .split('\n')
-                  .map(line => line.trim())
-                  .filter(line => line.length > 5 && !line.match(/^[A-Z\s]+:?$/))
-                  .slice(0, 3);
-                
-                if (lines.length > 0) {
-                  workSummary = lines
-                    .map(line => line.replace(/^\d+\.\s*/, '').replace(/^-\s*/, '').replace(/^•\s*/, ''))
-                    .join(' • ');
-                  break;
-                }
-              }
-            }
-            
-            // If no structured content found, look for work-related keywords in sentences
-            if (!workSummary) {
-              const workKeywords = /(?:replace|upgrade|implement|schedule|calibrate|update|inspect|review|analyze|process|handle|manage|coordinate|develop|create|maintain|monitor|assess|evaluate|track|report|prepare|execute|deliver|complete|finalize|optimize|improve|fix|repair|install|configure|setup|deploy|test|validate|verify|ensure|establish|define|design|plan|organize|structure|streamline|enhance|troubleshoot|resolve|address)\s+[^.]*[.!?]/gi;
-              
-              const workMatches = content.match(workKeywords);
-              if (workMatches && workMatches.length > 0) {
-                workSummary = workMatches
-                  .slice(0, 2)
-                  .map(match => match.trim().replace(/[.!?]$/, ''))
-                  .join(' • ');
-              }
-            }
-            
-            // Final fallback - extract first meaningful sentences that contain work indicators
-            if (!workSummary) {
-              const sentences = content
-                .replace(/\n+/g, ' ')
-                .split(/[.!?]+/)
-                .map(s => s.trim())
-                .filter(s => {
-                  const lowerS = s.toLowerCase();
-                  return s.length > 20 && s.length < 150 && 
-                         (lowerS.includes('task') || lowerS.includes('work') || 
-                          lowerS.includes('report') || lowerS.includes('review') ||
-                          lowerS.includes('analysis') || lowerS.includes('maintenance') ||
-                          lowerS.includes('project') || lowerS.includes('schedule') ||
-                          lowerS.includes('performance') || lowerS.includes('issue') ||
-                          lowerS.includes('problem') || lowerS.includes('solution') ||
-                          lowerS.includes('implement') || lowerS.includes('complete'));
-                })
-                .slice(0, 2);
-
-              if (sentences.length > 0) {
-                workSummary = sentences.join(' • ');
-              } else {
-                // Last resort - create meaningful task description from document context
-                const dept = doc.assigned_department || doc.department || 'Department';
-                if (doc.title && doc.title.toLowerCase().includes('maintenance')) {
-                  workSummary = `Review ${dept} maintenance procedures and implementation requirements`;
-                } else if (doc.title && doc.title.toLowerCase().includes('inspection')) {
-                  workSummary = `Complete ${dept} inspection tasks and submit findings report`;
-                } else if (doc.title && doc.title.toLowerCase().includes('report')) {
-                  workSummary = `Analyze ${dept} report data and implement recommended actions`;
-                } else {
-                  workSummary = `Process ${dept} documentation and complete assigned tasks`;
-                }
-              }
-            }
-            
-            // Clean up and format the work summary
-            if (workSummary) {
-              workSummary = workSummary
-                .replace(/\\n/g, ' ') // Replace literal \n with space
-                .replace(/\n/g, ' ') // Replace actual newlines with space
-                .replace(/\s+/g, ' ') // Replace multiple spaces with single space
-                .replace(/\s*•\s*/g, ' • ') // Clean up bullet formatting
-                .trim()
-                .substring(0, 200);
-              
-              // Ensure it ends cleanly if truncated
-              if (workSummary.length === 200 && !workSummary.endsWith('•')) {
-                const lastBullet = workSummary.lastIndexOf('•');
-                if (lastBullet > 100) {
-                  workSummary = workSummary.substring(0, lastBullet).trim() + '...';
-                }
-              }
-            }
-            
             return {
               id: doc.id,
-              title: workSummary || `Review: ${doc.title}`,
-              description: `${doc.source || 'Document'}`,
+              title: doc.filename || doc.title || 'Untitled Document',
+              description: doc.summary || 'No summary available',
+              summary: doc.summary || doc.metadata?.ai_analysis?.summary || 'No summary available',
+              metadata: doc.metadata,
               department: doc.department,
               assignedDepartment: doc.assigned_department || doc.department,
               priority: doc.priority as 'urgent' | 'high' | 'normal' | 'low' || 'normal',
               deadline: doc.metadata?.deadline || getDefaultDeadline(doc.priority),
               completed: doc.completed || false,
               documentId: doc.id,
-              fileName: doc.title,
-              fileUrl: `/api/documents/${doc.id}`, // API endpoint to view document
-              createdAt: doc.createdAt || new Date().toISOString()
+              fileName: doc.filename || doc.title,
+              fileUrl: `' + import.meta.env.VITE_API_URL + '/api/documents/${doc.id}/download`,
+              createdAt: doc.created_at || doc.upload_date || new Date().toISOString()
             };
           });
         
@@ -240,7 +141,7 @@ const DepartmentDashboard: React.FC = () => {
       const task = tasks.find(t => t.id === taskId);
       if (!task) return;
 
-      const response = await fetch(`http://127.0.0.1:5000/api/tasks/${taskId}/complete`, {
+      const response = await fetch(`' + import.meta.env.VITE_API_URL + '/api/tasks/${taskId}/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -263,7 +164,7 @@ const DepartmentDashboard: React.FC = () => {
     try {
       console.log('Viewing document:', documentId);
       // Open document in new tab for viewing with HTML format
-      window.open(`http://127.0.0.1:5000/api/documents/${documentId}?view=html`, '_blank');
+      window.open(`' + import.meta.env.VITE_API_URL + '/api/documents/${documentId}`, '_blank');
     } catch (error) {
       console.error('Error viewing document:', error);
     }
@@ -272,7 +173,7 @@ const DepartmentDashboard: React.FC = () => {
   const downloadDocument = async (task: Task) => {
     try {
       console.log('Downloading document:', task.documentId);
-      const response = await fetch(`http://127.0.0.1:5000/api/download/${task.documentId}`);
+      const response = await fetch(`' + import.meta.env.VITE_API_URL + '/api/documents/${task.documentId}/download`);
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
@@ -331,41 +232,27 @@ const DepartmentDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Hamburger Menu */}
-      <HamburgerMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
-      
+    <div className="px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      <header className="bg-white shadow-sm border-b border-gray-200 mb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+          <div className="flex justify-between items-center py-6">
             {/* Left side */}
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setMenuOpen(true)}
-                className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            <div className="flex items-center space-x-3">
+              <div 
+                className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold"
+                style={{ 
+                  backgroundColor: `${user.department?.color}20`, 
+                  color: user.department?.color 
+                }}
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
-              
-              <div className="flex items-center space-x-3">
-                <div 
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold"
-                  style={{ 
-                    backgroundColor: `${user.department?.color}20`, 
-                    color: user.department?.color 
-                  }}
-                >
-                  {user.department?.icon}
-                </div>
-                <div>
-                  <h1 className="text-xl font-semibold text-gray-900">
-                    {user.department?.name} Dashboard
-                  </h1>
-                  <p className="text-sm text-gray-500">Welcome, {user.username}</p>
-                </div>
+                {user.department?.icon}
+              </div>
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900">
+                  {user.department?.name} Dashboard
+                </h1>
+                <p className="text-sm text-gray-500">Welcome, {user.username}</p>
               </div>
             </div>
 
@@ -434,7 +321,7 @@ const DepartmentDashboard: React.FC = () => {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              Global Search
+              Document Search
             </button>
           </nav>
         </div>
@@ -442,237 +329,202 @@ const DepartmentDashboard: React.FC = () => {
         {/* Tab Content */}
         {activeTab === 'tasks' && (
           <div className="space-y-6">
-            {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                      </svg>
-                    </div>
+            {/* Department Header */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div 
+                    className="w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold"
+                    style={{ 
+                      backgroundColor: `${currentDepartment?.color}20`, 
+                      color: currentDepartment?.color 
+                    }}
+                  >
+                    {currentDepartment?.icon}
                   </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Total Tasks</p>
-                    <p className="text-2xl font-semibold text-gray-900">{tasks.length}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                      <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Due Today</p>
-                    <p className="text-2xl font-semibold text-gray-900">
-                      {tasks.filter(t => isDeadlineToday(t.deadline)).length}
-                    </p>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">
+                      {currentDepartment?.name} Department
+                    </h2>
+                    <p className="text-gray-600">{currentDepartment?.description}</p>
                   </div>
                 </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Completed</p>
-                    <p className="text-2xl font-semibold text-gray-900">
-                      {tasks.filter(t => t.completed).length}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                      <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.728-.833-2.498 0L4.316 15.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Overdue</p>
-                    <p className="text-2xl font-semibold text-gray-900">
-                      {tasks.filter(t => isOverdue(t.deadline) && !t.completed).length}
-                    </p>
-                  </div>
-                </div>
+                <button
+                  onClick={() => setAiOpen(true)}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-4l-4 4-4-4z" />
+                  </svg>
+                  AI Assistant
+                </button>
               </div>
             </div>
 
-            {/* Tasks Table */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-medium text-gray-900">Department Tasks</h3>
-              </div>
-              
-              {error && (
-                <div className="p-4 bg-red-50 border-l-4 border-red-400">
-                  <p className="text-red-700">{error}</p>
-                </div>
-              )}
-
+            {/* Documents Table */}
+            <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Task
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Document
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         Priority
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Deadline
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Source
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        File
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Date
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredTasks.map((task) => (
-                      <tr 
-                        key={task.id}
-                        className={`${
-                          isDeadlineToday(task.deadline) ? 'bg-red-50' : 
-                          isOverdue(task.deadline) && !task.completed ? 'bg-red-100' : ''
-                        }`}
-                      >
-                        <td className="px-6 py-4">
-                          <div className="flex items-start space-x-3">
-                            <input
-                              type="checkbox"
-                              checked={task.completed}
-                              onChange={() => toggleTaskCompletion(task.id)}
-                              className="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                            />
-                            <div className="flex-1">
-                              <div className="text-sm font-medium text-gray-900">
-                                {task.title.includes('•') ? (
-                                  <div>
-                                    {task.title.split('•').map((item, index) => (
-                                      index === 0 ? (
-                                        <div key={index} className="font-medium">{item.trim()}</div>
-                                      ) : (
-                                        <div key={index} className="ml-2 mt-1">• {item.trim()}</div>
-                                      )
-                                    ))}
-                                  </div>
-                                ) : (
-                                  task.title
-                                )}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                {task.description}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getPriorityColor(task.priority)}`}>
-                            {task.priority}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className={`text-sm ${
-                            isDeadlineToday(task.deadline) ? 'text-red-600 font-bold' :
-                            isOverdue(task.deadline) && !task.completed ? 'text-red-500' :
-                            'text-gray-900'
-                          }`}>
-                            {new Date(task.deadline).toLocaleDateString()}
-                            {isDeadlineToday(task.deadline) && (
-                              <span className="ml-2 text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
-                                TODAY
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => viewDocument(task.documentId)}
-                              className="text-indigo-600 hover:text-indigo-900 text-sm flex items-center space-x-1"
-                              title="View Document"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                              </svg>
-                              <span>View</span>
-                            </button>
-                            <button
-                              onClick={() => downloadDocument(task)}
-                              className="text-green-600 hover:text-green-900 text-sm flex items-center space-x-1"
-                              title="Download Document"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                              <span>Download</span>
-                            </button>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            task.completed 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {task.completed ? 'Completed' : 'Pending'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button
-                            onClick={() => viewDocument(task.documentId)}
-                            className="text-indigo-600 hover:text-indigo-900 mr-3"
-                          >
-                            View
-                          </button>
-                          <button
-                            onClick={() => downloadDocument(task)}
-                            className="text-green-600 hover:text-green-900"
-                          >
-                            Download
-                          </button>
+                    {tasks.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                          <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                          <p className="text-lg font-medium">No documents yet</p>
+                          <p className="text-sm">Documents assigned to this department will appear here</p>
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      tasks.map((task) => {
+                        const isExpanded = expandedDocs.has(task.id);
+                        return (
+                          <React.Fragment key={task.id}>
+                            <tr className="hover:bg-blue-50 transition-colors">
+                              <td className="px-6 py-4">
+                                <div className="flex items-center">
+                                  <button
+                                    onClick={() => {
+                                      const newExpanded = new Set(expandedDocs);
+                                      if (isExpanded) {
+                                        newExpanded.delete(task.id);
+                                      } else {
+                                        newExpanded.add(task.id);
+                                      }
+                                      setExpandedDocs(newExpanded);
+                                    }}
+                                    className="mr-2 text-gray-400 hover:text-gray-600 transition-colors"
+                                    aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                                  >
+                                    {isExpanded ? (
+                                      <ChevronUp className="h-5 w-5" />
+                                    ) : (
+                                      <ChevronDown className="h-5 w-5" />
+                                    )}
+                                  </button>
+                                  <div className="text-2xl mr-3">
+                                    📄
+                                  </div>
+                                  <div>
+                                    <div className="text-sm font-medium text-gray-900 hover:text-blue-600">
+                                      {task.title || task.fileName || 'Untitled'}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                                  task.priority === 'urgent' ? 'bg-red-100 text-red-800' :
+                                  task.priority === 'high' ? 'bg-orange-100 text-orange-800' :
+                                  task.priority === 'normal' ? 'bg-blue-100 text-blue-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {task.priority || 'normal'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className="text-sm text-gray-600 capitalize">
+                                  {task.department || 'manual'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {task.createdAt ? new Date(task.createdAt).toLocaleDateString() : 'N/A'}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex items-center space-x-2">
+                                  {task.fileUrl && (
+                                    <a
+                                      href={task.fileUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center px-3 py-1.5 border border-blue-300 rounded-md text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                                    >
+                                      View File
+                                    </a>
+                                  )}
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        const userEmail = `${currentDepartment?.id}@kmrl.com`;
+                                        const formData = new FormData();
+                                        formData.append('user_email', userEmail);
+                                        
+                                        const response = await fetch(`' + import.meta.env.VITE_API_URL + '/api/documents/${task.documentId}/mark-private`, {
+                                          method: 'POST',
+                                          body: formData
+                                        });
+                                        
+                                        if (response.ok) {
+                                          const result = await response.json();
+                                          console.log('Document marked private:', result);
+                                          alert(`Document saved to your private collection!\n\nFind it in the "My Documents" tab.`);
+                                          // Remove from current list since it's now private
+                                          setTasks(prev => prev.filter(t => t.documentId !== task.documentId));
+                                        } else {
+                                          const error = await response.json();
+                                          console.error('Failed to mark private:', error);
+                                          alert('Failed to mark document as private. Please try again.');
+                                        }
+                                      } catch (error) {
+                                        console.error('Error marking private:', error);
+                                        alert('Error marking document as private. Please try again.');
+                                      }
+                                    }}
+                                    className="inline-flex items-center px-3 py-1.5 border border-purple-300 rounded-md text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 transition-colors"
+                                  >
+                                    🔒 Save Private
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                            {isExpanded && (
+                              <tr className="bg-blue-50">
+                                <td colSpan={5} className="px-6 py-4">
+                                  <div className="pl-12">
+                                    <h4 className="text-sm font-semibold text-gray-900 mb-2">📝 Document Summary</h4>
+                                    <p className="text-sm text-gray-700 leading-relaxed">
+                                      {task.summary || task.metadata?.ai_analysis?.summary || task.description || 'No summary available for this document.'}
+                                    </p>
+                                    {task.metadata?.ai_analysis?.key_topics && task.metadata.ai_analysis.key_topics.length > 0 && (
+                                      <div className="mt-3">
+                                        <h5 className="text-xs font-semibold text-gray-700 mb-2">Key Topics:</h5>
+                                        <div className="flex flex-wrap gap-2">
+                                          {task.metadata.ai_analysis.key_topics.map((topic: string, idx: number) => (
+                                            <span key={idx} className="px-2 py-1 bg-blue-200 text-blue-800 rounded text-xs">
+                                              {topic}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
-                
-                {filteredTasks.length === 0 && (
-                  <div className="text-center py-12">
-                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                    </svg>
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">No tasks found</h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      {searchQuery ? 'Try adjusting your search terms.' : 'No tasks assigned to your department yet.'}
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -696,7 +548,10 @@ const DepartmentDashboard: React.FC = () => {
       {aiOpen && (
         <AIAssistant 
           isOpen={aiOpen} 
-          onClose={() => setAiOpen(false)}
+          onClose={() => {
+            console.log('DepartmentDashboard: Closing AI Assistant');
+            setAiOpen(false);
+          }}
           onTaskUpdate={fetchDepartmentTasks}
         />
       )}
