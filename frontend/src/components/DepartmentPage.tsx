@@ -18,7 +18,6 @@ const DepartmentPage: React.FC = () => {
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
   const [selectedSource, setSelectedSource] = useState<string>('all');
   const [expandedDocs, setExpandedDocs] = useState<Set<string>>(new Set());
-  const [expandedDocs, setExpandedDocs] = useState<Set<string>>(new Set());
 
   const department = getDepartmentByName(deptName || '');
 

@@ -115,3 +115,24 @@ export interface DocumentsResponse {
     priority: string | null;
   };
 }
+
+// User types
+export interface User {
+  id: string;
+  email: string;
+  user_metadata?: any;
+  app_metadata?: any;
+}
+
+// Task types
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  status: string;
+  priority: string;
+  department: string;
+  created_at: string;
+  summary?: string;
+  metadata?: any;
+}
