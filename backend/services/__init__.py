@@ -1,12 +1,12 @@
 # Services package
-from .minio_service import MinIOService
+from .storage_service import StorageService
 from .document_parser import DocumentParser
 from .embedding_service import EmbeddingService
 from .department_classifier import DepartmentClassifier
 from .database_service import DatabaseService
 
 __all__ = [
-    'MinIOService',
+    'StorageService',
     'DocumentParser',
     'EmbeddingService',
     'DepartmentClassifier',
